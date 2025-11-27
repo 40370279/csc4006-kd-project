@@ -1,0 +1,14 @@
+cat <<EOF > .gitignore
+# Ignore massive datasets
+data/
+data/ptb-xl/
+
+# Ignore training output
+checkpoints/
+logs/
+processed/
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+EOF
