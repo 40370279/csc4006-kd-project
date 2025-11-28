@@ -43,7 +43,7 @@ def build_diagnostic_mapping(scp_df: pd.DataFrame) -> Dict[str, str]:
     """
     Build mapping from SCP code -> diagnostic superclass.
 
-    We only keep statements that are marked as diagnostic and have a
+    Only keep statements that are marked as diagnostic and have a
     diagnostic_class such as NORM, MI, STTC, HYP or CD.
     """
     diag_df = scp_df[scp_df["diagnostic"] == 1]
