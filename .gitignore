@@ -1,0 +1,16 @@
+# Ignore massive datasets
+data/
+data/ptbxl/
+
+# Ignore training output
+checkpoints/
+logs/
+processed/
+
+# Python cache / compiled files
+__pycache__/
+*.pyc
+
+# macOS system files
+.DS_Store
+**/.DS_Store
