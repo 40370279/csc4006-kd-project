@@ -1,3 +1,4 @@
+#teacher_cnn.py
 import torch
 import torch.nn as nn
 
@@ -22,13 +23,6 @@ class SEBlock(nn.Module):
 
 
 class ResidualSEBlock1D(nn.Module):
-    """
-    Residual 1D block with:
-    Conv-BN-GELU -> Conv-BN -> SE -> residual add -> GELU -> optional MaxPool
-
-    Supports dilation to increase receptive field without exploding parameters.
-    """
-
     def __init__(
         self,
         in_ch: int,
@@ -96,10 +90,6 @@ class ResidualSEBlock1D(nn.Module):
 
 
 class DualPoolHead(nn.Module):
-    """
-    Concatenate global average pooled and global max pooled features.
-    """
-
     def __init__(self):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool1d(1)
@@ -112,16 +102,6 @@ class DualPoolHead(nn.Module):
 
 
 class TeacherCNN(nn.Module):
-    """
-    Stronger teacher CNN for 12-lead ECG classification on PTB-XL.
-
-    Changes vs the previous large teacher:
-    - uses GELU activations
-    - uses dilated residual blocks for larger temporal receptive field
-    - uses dual pooling head (GAP + GMP)
-    - keeps SE attention and residual learning
-    """
-
     def __init__(self, n_leads: int = 12, n_classes: int = 5):
         super().__init__()
 
@@ -131,27 +111,13 @@ class TeacherCNN(nn.Module):
             nn.GELU(),
         )
 
-        self.block1 = ResidualSEBlock1D(
-            64, 96, kernel_size=11, dilation=1, pool=True, use_se=True, dropout=0.05
-        )
-        self.block2 = ResidualSEBlock1D(
-            96, 128, kernel_size=9, dilation=1, pool=True, use_se=True, dropout=0.05
-        )
-        self.block3 = ResidualSEBlock1D(
-            128, 192, kernel_size=7, dilation=2, pool=True, use_se=True, dropout=0.08
-        )
-        self.block4 = ResidualSEBlock1D(
-            192, 256, kernel_size=7, dilation=2, pool=True, use_se=True, dropout=0.08
-        )
-        self.block5 = ResidualSEBlock1D(
-            256, 384, kernel_size=5, dilation=3, pool=True, use_se=True, dropout=0.10
-        )
-        self.block6 = ResidualSEBlock1D(
-            384, 512, kernel_size=5, dilation=3, pool=True, use_se=True, dropout=0.10
-        )
-        self.block7 = ResidualSEBlock1D(
-            512, 512, kernel_size=3, dilation=4, pool=False, use_se=True, dropout=0.10
-        )
+        self.block1 = ResidualSEBlock1D(64, 96, kernel_size=11)
+        self.block2 = ResidualSEBlock1D(96, 128, kernel_size=9)
+        self.block3 = ResidualSEBlock1D(128, 192, kernel_size=7, dilation=2)
+        self.block4 = ResidualSEBlock1D(192, 256, kernel_size=7, dilation=2)
+        self.block5 = ResidualSEBlock1D(256, 384, kernel_size=5, dilation=3)
+        self.block6 = ResidualSEBlock1D(384, 512, kernel_size=5, dilation=3)
+        self.block7 = ResidualSEBlock1D(512, 512, kernel_size=3, dilation=4, pool=False)
 
         self.pool_head = DualPoolHead()
 
@@ -163,7 +129,8 @@ class TeacherCNN(nn.Module):
             nn.Linear(256, n_classes),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, return_features: bool = False):
+
         x = self.stem(x)
         x = self.block1(x)
         x = self.block2(x)
@@ -172,6 +139,13 @@ class TeacherCNN(nn.Module):
         x = self.block5(x)
         x = self.block6(x)
         x = self.block7(x)
+
+        features = x
+
         x = self.pool_head(x)
-        x = self.classifier(x)
-        return x
+        logits = self.classifier(x)
+
+        if return_features:
+            return logits, features
+
+        return logits

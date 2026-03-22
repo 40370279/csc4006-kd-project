@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
 #SBATCH --time=03:00:00
-#SBATCH --output=logs/student_baseline_%j.out
+#SBATCH --output=experiments/1__kd_vs_baseline/logs/student_baseline_%j.out
 
 set -euo pipefail
 
@@ -18,10 +18,11 @@ cd "$PROJECT_DIR"
 export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-mkdir -p logs checkpoints logs/tmp
+mkdir -p experiments/1__kd_vs_baseline/checkpoints
+mkdir -p experiments/1__kd_vs_baseline/logs/tmp
 
-echo "===== STUDENT BASELINE RUN ====="
-echo "This job runs multiple seeds: 42, 123, 999"
+echo "===== EXPERIMENT 1: NORMAL STUDENT BASELINE ====="
+echo "This job runs seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
 echo "Start time: $(date)"
@@ -38,7 +39,7 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="logs/tmp/student_baseline_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  SEED_LOG="experiments/1__kd_vs_baseline/logs/tmp/student_baseline_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
 
   python3 -u scripts/train_student_baseline.py \
     --batch_size 64 \
@@ -49,7 +50,7 @@ do
     --num_workers 2 \
     --seed "$SEED" \
     --student_size small \
-    --student_ckpt "checkpoints/student_base_seed${SEED}.pt" \
+    --student_ckpt "experiments/1__kd_vs_baseline/checkpoints/student_baseline_seed${SEED}.pt" \
     2>&1 | tee "$SEED_LOG"
 
   ACC_VAL=$(grep -F "Test accuracy (baseline student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
@@ -77,7 +78,7 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== STUDENT BASELINE SUMMARY ====="
+echo "===== NORMAL STUDENT BASELINE SUMMARY ====="
 
 python3 - <<EOF
 import numpy as np

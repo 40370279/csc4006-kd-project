@@ -3,53 +3,61 @@ import torch.nn as nn
 
 
 class StudentCNN(nn.Module):
-    """
-    Slightly stronger lightweight Student CNN for knowledge distillation.
+    SIZE_CONFIGS = {
+        "small": {"channels": [48, 96, 128, 128], "hidden_dim": 64},
+        "medium": {"channels": [64, 128, 192, 192], "hidden_dim": 96},
+        "large": {"channels": [96, 192, 256, 256], "hidden_dim": 128},
+    }
 
-    Input
-    -----
-    x : (batch_size, n_leads, seq_len)
-
-    Output
-    ------
-    logits : (batch_size, n_classes)
-    """
-
-    def __init__(self, n_leads: int = 12, n_classes: int = 5):
+    def __init__(self, n_leads: int = 12, n_classes: int = 5, size: str = "small"):
         super().__init__()
 
-        self.features = nn.Sequential(
-            nn.Conv1d(n_leads, 48, kernel_size=7, padding=3, bias=False),
-            nn.BatchNorm1d(48),
-            nn.ReLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2),
+        if size not in self.SIZE_CONFIGS:
+            raise ValueError(
+                f"Invalid student size '{size}'. Must be one of {list(self.SIZE_CONFIGS.keys())}"
+            )
 
-            nn.Conv1d(48, 96, kernel_size=7, padding=3, bias=False),
-            nn.BatchNorm1d(96),
-            nn.ReLU(inplace=True),
-            nn.MaxPool1d(kernel_size=2),
+        cfg = self.SIZE_CONFIGS[size]
+        c1, c2, c3, c4 = cfg["channels"]
+        hidden_dim = cfg["hidden_dim"]
 
-            nn.Conv1d(96, 128, kernel_size=5, padding=2, bias=False),
-            nn.BatchNorm1d(128),
+        self.feature_extractor = nn.Sequential(
+            nn.Conv1d(n_leads, c1, kernel_size=7, padding=3, bias=False),
+            nn.BatchNorm1d(c1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(2),
+
+            nn.Conv1d(c1, c2, kernel_size=7, padding=3, bias=False),
+            nn.BatchNorm1d(c2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool1d(2),
+
+            nn.Conv1d(c2, c3, kernel_size=5, padding=2, bias=False),
+            nn.BatchNorm1d(c3),
             nn.ReLU(inplace=True),
 
-            nn.Conv1d(128, 128, kernel_size=5, padding=2, bias=False),
-            nn.BatchNorm1d(128),
+            nn.Conv1d(c3, c4, kernel_size=5, padding=2, bias=False),
+            nn.BatchNorm1d(c4),
             nn.ReLU(inplace=True),
-
-            nn.AdaptiveAvgPool1d(output_size=1),
         )
+
+        self.global_pool = nn.AdaptiveAvgPool1d(1)
 
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Dropout(p=0.25),
-            nn.Linear(128, 64),
+            nn.Dropout(0.25),
+            nn.Linear(c4, hidden_dim),
             nn.ReLU(inplace=True),
-            nn.Dropout(p=0.25),
-            nn.Linear(64, n_classes),
+            nn.Dropout(0.25),
+            nn.Linear(hidden_dim, n_classes),
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
-        x = self.classifier(x)
-        return x
+    def forward(self, x: torch.Tensor, return_features: bool = False):
+        features = self.feature_extractor(x)
+        pooled = self.global_pool(features)
+        logits = self.classifier(pooled)
+
+        if return_features:
+            return logits, features
+
+        return logits

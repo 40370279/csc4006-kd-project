@@ -1,7 +1,8 @@
-#train_student.py
+#train_student_weak_kd.py
 import os
 import argparse
 import time
+import random
 import numpy as np
 from typing import Tuple
 
@@ -14,7 +15,8 @@ import torch.nn.functional as F
 from src.data.dataset import ECGDataset
 from src.data.augmentations import ECGAugment
 from src.models.teacher_cnn import TeacherCNN
-from src.models.student_cnn import StudentCNN
+from src.models.teacher_variants import WeakTeacherCNN, StrongTeacherCNN
+from src.models.weak_student_cnn import WeakStudentCNN
 from src.utils.metrics import evaluate_classification
 from src.utils.model_stats import (
     count_trainable_params,
@@ -28,8 +30,32 @@ DATA_PATH = os.path.join("processed", "ptbxl_500hz_10s.npz")
 CHECKPOINT_DIR = "checkpoints"
 
 TEACHER_CKPT = os.path.join(CHECKPOINT_DIR, "teacher_cnn_best.pt")
+STUDENT_CKPT = os.path.join(CHECKPOINT_DIR, "weak_student_kd_best.pt")
 
-STUDENT_CKPT = os.path.join(CHECKPOINT_DIR, "student_cnn_kd_best.pt")
+
+def set_seed(seed: int = 42):
+    random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+    try:
+        torch.use_deterministic_algorithms(True)
+    except Exception:
+        pass
+
+
+def seed_worker(worker_id: int):
+    worker_seed = torch.initial_seed() % (2**32)
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 
 def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
@@ -59,12 +85,6 @@ def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
 
 
 def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tensor:
-    """
-    Softer inverse-frequency class weights.
-
-    gamma = 1.0  -> full inverse-frequency weighting
-    gamma = 0.5  -> softer rebalancing
-    """
     classes, counts = np.unique(labels, return_counts=True)
     freq = counts.astype(np.float32) / counts.sum()
     inv = 1.0 / (freq + 1e-6)
@@ -81,14 +101,6 @@ def kd_loss(
     alpha: float,
     T: float,
 ):
-    """
-    Returns (total_loss, ce_loss, kd_loss).
-
-    total_loss = alpha * CE(y_true, p_s)
-                 + (1 - alpha) * T^2 * KL(p_t || p_s)
-
-    where p_t = softmax(z_t / T), p_s = softmax(z_s / T).
-    """
     ce = ce_criterion(student_logits, targets)
 
     log_p_student = F.log_softmax(student_logits / T, dim=1)
@@ -150,13 +162,28 @@ def train_one_epoch(
     return avg_loss, avg_ce, avg_kd, acc
 
 
+def build_teacher_from_arch(teacher_arch: str, n_leads: int, n_classes: int) -> nn.Module:
+    if teacher_arch == "TeacherCNN":
+        return TeacherCNN(n_leads=n_leads, n_classes=n_classes)
+    if teacher_arch == "WeakTeacherCNN":
+        return WeakTeacherCNN(n_leads=n_leads, n_classes=n_classes)
+    if teacher_arch == "StrongTeacherCNN":
+        return StrongTeacherCNN(n_leads=n_leads, n_classes=n_classes)
+
+    raise ValueError(
+        "Unsupported teacher_arch '{}' found in checkpoint. "
+        "Expected one of: TeacherCNN, WeakTeacherCNN, StrongTeacherCNN.".format(teacher_arch)
+    )
+
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train KD student on PTB-XL using teacher v2")
+    parser = argparse.ArgumentParser(description="Train configurable weak KD student on PTB-XL")
 
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--seed", type=int, default=42)
 
     parser.add_argument(
         "--class_weight_gamma",
@@ -180,10 +207,32 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--student_size",
+        type=str,
+        default="medium",
+        choices=["small", "medium", "large"],
+        help="Weak student capacity to use",
+    )
+
+    parser.add_argument(
         "--num_workers",
         type=int,
         default=2,
         help="DataLoader workers",
+    )
+
+    parser.add_argument(
+        "--teacher_ckpt",
+        type=str,
+        default=TEACHER_CKPT,
+        help="Path to teacher checkpoint",
+    )
+
+    parser.add_argument(
+        "--student_ckpt",
+        type=str,
+        default=STUDENT_CKPT,
+        help="Path to save the best weak KD student checkpoint",
     )
 
     return parser.parse_args()
@@ -191,15 +240,14 @@ def parse_args():
 
 def main():
     args = parse_args()
-
-    if torch.cuda.is_available():
-        torch.backends.cudnn.benchmark = True
+    set_seed(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device, flush=True)
+    print("Seed:", args.seed, flush=True)
     print(
-        "KD hyperparameters: alpha={:.3f}, T={:.2f}, class_weight_gamma={:.2f}".format(
-            args.alpha, args.temperature, args.class_weight_gamma
+        "KD hyperparameters: alpha={:.3f}, T={:.2f}, class_weight_gamma={:.2f}, weak_student_size={}".format(
+            args.alpha, args.temperature, args.class_weight_gamma, args.student_size
         ),
         flush=True,
     )
@@ -209,8 +257,9 @@ def main():
         ),
         flush=True,
     )
+    print("Teacher checkpoint path:", args.teacher_ckpt, flush=True)
+    print("Student checkpoint path:", args.student_ckpt, flush=True)
 
-    # 1) Load data
     X_train, y_train, X_val, y_val, X_test, y_test, classes = load_splits()
     n_leads = X_train.shape[1]
     n_classes = len(classes)
@@ -221,8 +270,13 @@ def main():
     print("Number of leads:", n_leads, "classes:", n_classes, flush=True)
     print("Classes:", classes, flush=True)
 
-    # 2) Datasets and loaders
-    train_transform = ECGAugment()
+    # Matched exactly to baseline script for fair comparison
+    train_transform = ECGAugment(
+        noise_std=0.005,
+        scale_range=(0.95, 1.05),
+        max_shift=50,
+        lead_drop_prob=0.05,
+    )
 
     print("DEBUG: building datasets", flush=True)
     train_dataset = ECGDataset(X_train, y_train, transform=train_transform)
@@ -231,6 +285,9 @@ def main():
 
     print("DEBUG: building dataloaders", flush=True)
 
+    train_gen = torch.Generator()
+    train_gen.manual_seed(args.seed)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
@@ -238,6 +295,8 @@ def main():
         num_workers=args.num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=args.num_workers > 0,
+        worker_init_fn=seed_worker,
+        generator=train_gen,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -246,6 +305,7 @@ def main():
         num_workers=args.num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=args.num_workers > 0,
+        worker_init_fn=seed_worker,
     )
     test_loader = DataLoader(
         test_dataset,
@@ -254,32 +314,43 @@ def main():
         num_workers=args.num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=args.num_workers > 0,
+        worker_init_fn=seed_worker,
     )
 
-    # 3) Teacher (frozen) and student
-    if not os.path.exists(TEACHER_CKPT):
+    if not os.path.exists(args.teacher_ckpt):
         raise FileNotFoundError(
-            "Teacher checkpoint not found at {}. Train the new teacher first.".format(TEACHER_CKPT)
+            "Teacher checkpoint not found at {}. Train the new teacher first.".format(args.teacher_ckpt)
         )
 
-    print("DEBUG: loading teacher from", TEACHER_CKPT, flush=True)
-    teacher = TeacherCNN(n_leads=n_leads, n_classes=n_classes).to(device)
+    print("DEBUG: reading teacher checkpoint metadata from", args.teacher_ckpt, flush=True)
+    teacher_ckpt = torch.load(args.teacher_ckpt, map_location=device, weights_only=False)
 
-    teacher_ckpt = torch.load(TEACHER_CKPT, map_location=device, weights_only=False)
-    teacher.load_state_dict(teacher_ckpt["model_state_dict"])
-
-    teacher_arch_name = teacher_ckpt.get("teacher_arch", "UNKNOWN")
+    teacher_arch_name = teacher_ckpt.get("teacher_arch", "TeacherCNN")
     teacher_best_val = teacher_ckpt.get("best_val_macro_f1", None)
+
     print("Teacher checkpoint arch:", teacher_arch_name, flush=True)
     if teacher_best_val is not None:
         print("Teacher checkpoint best val macro-F1: {:.4f}".format(teacher_best_val), flush=True)
+
+    print("DEBUG: instantiating teacher", flush=True)
+    teacher = build_teacher_from_arch(
+        teacher_arch=teacher_arch_name,
+        n_leads=n_leads,
+        n_classes=n_classes,
+    ).to(device)
+
+    teacher.load_state_dict(teacher_ckpt["model_state_dict"])
 
     teacher.eval()
     for p in teacher.parameters():
         p.requires_grad = False
 
-    print("DEBUG: instantiating student", flush=True)
-    student = StudentCNN(n_leads=n_leads, n_classes=n_classes).to(device)
+    print("DEBUG: instantiating weak student", flush=True)
+    student = WeakStudentCNN(
+        n_leads=n_leads,
+        n_classes=n_classes,
+        size=args.student_size,
+    ).to(device)
 
     print("Trainable parameters:", count_trainable_params(student), flush=True)
     print("Total parameters:", count_all_params(student), flush=True)
@@ -302,13 +373,16 @@ def main():
     )
 
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-    best_val_metric = 0.0
+    ckpt_dir = os.path.dirname(args.student_ckpt)
+    if ckpt_dir:
+        os.makedirs(ckpt_dir, exist_ok=True)
+
+    best_val_metric = -1.0
     best_epoch = 0
     best_time_sec = 0.0
     epochs_without_improvement = 0
     training_start_time = time.time()
 
-    # 4) Training loop
     for epoch in range(1, args.epochs + 1):
         print("DEBUG: starting epoch", epoch, flush=True)
         epoch_start_time = time.time()
@@ -361,50 +435,64 @@ def main():
                     "model_state_dict": student.state_dict(),
                     "classes": classes,
                     "n_leads": n_leads,
+                    "student_size": args.student_size,
                     "alpha": args.alpha,
                     "temperature": args.temperature,
                     "class_weight_gamma": args.class_weight_gamma,
-                    "teacher_checkpoint": TEACHER_CKPT,
+                    "teacher_checkpoint": args.teacher_ckpt,
                     "teacher_arch": teacher_arch_name,
                     "teacher_best_val_macro_f1": teacher_best_val,
+                    "seed": args.seed,
+                    "best_val_macro_f1": best_val_metric,
+                    "best_epoch": best_epoch,
                 },
-                STUDENT_CKPT,
+                args.student_ckpt,
             )
-            print("  -> New best KD student saved to", STUDENT_CKPT, flush=True)
+            print("  -> New best weak KD student saved to", args.student_ckpt, flush=True)
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= args.patience:
                 print("Early stopping triggered.", flush=True)
                 break
 
-    # 5) Final test evaluation
-    if not os.path.exists(STUDENT_CKPT):
-        raise FileNotFoundError(f"Best KD student checkpoint not found: {STUDENT_CKPT}")
+    if not os.path.exists(args.student_ckpt):
+        raise FileNotFoundError(f"Best weak KD student checkpoint not found: {args.student_ckpt}")
 
-    kd_ckpt = torch.load(STUDENT_CKPT, map_location=device, weights_only=False)
+    kd_ckpt = torch.load(args.student_ckpt, map_location=device, weights_only=False)
     student.load_state_dict(kd_ckpt["model_state_dict"])
-    print("Loaded best KD student checkpoint for final test evaluation.", flush=True)
+    print("Loaded best weak KD student checkpoint for final test evaluation.", flush=True)
 
     print("Best validation macro-F1: {:.4f}".format(best_val_metric), flush=True)
     print("Best epoch:", best_epoch, flush=True)
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)
-    print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(STUDENT_CKPT)), flush=True)
+    print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(args.student_ckpt)), flush=True)
+    print("Weak student size:", kd_ckpt.get("student_size", "UNKNOWN"), flush=True)
     print("Teacher used:", kd_ckpt.get("teacher_checkpoint", "UNKNOWN"), flush=True)
     print("Teacher arch:", kd_ckpt.get("teacher_arch", "UNKNOWN"), flush=True)
+    print("Checkpoint seed:", kd_ckpt.get("seed", "UNKNOWN"), flush=True)
 
     test_metrics = evaluate_classification(student, test_loader, device)
-    print("Test accuracy (KD student): {:.4f}".format(test_metrics["acc"]), flush=True)
-    print("Test macro-F1 (KD student): {:.4f}".format(test_metrics["macro_f1"]), flush=True)
-    print("Test weighted-F1 (KD student): {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
+    print("Test accuracy (weak KD student): {:.4f}".format(test_metrics["acc"]), flush=True)
+    print("Test macro-F1 (weak KD student): {:.4f}".format(test_metrics["macro_f1"]), flush=True)
+    print("Test weighted-F1 (weak KD student): {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
     print("Test classification report:", flush=True)
     print(test_metrics["report"], flush=True)
     print("Test confusion matrix:", flush=True)
     print(test_metrics["confusion_matrix"], flush=True)
 
+    torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
     dummy_input = torch.randn(1, n_leads, X_train.shape[2], device=device)
     latency_sec = measure_latency(student, dummy_input, device)
     print("Inference latency: {:.4f} ms/sample".format(latency_sec * 1000.0), flush=True)
 
+    return {
+        "acc": test_metrics["acc"],
+        "macro_f1": test_metrics["macro_f1"],
+        "weighted_f1": test_metrics["weighted_f1"],
+    }
+
 
 if __name__ == "__main__":
-    main()
+    results = main()

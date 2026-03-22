@@ -1,4 +1,3 @@
-# train_teacher.py
 import os
 import argparse
 import math
@@ -15,7 +14,7 @@ import torch.optim as optim
 
 from src.data.dataset import ECGDataset
 from src.data.augmentations import ECGAugment
-from src.models.teacher_cnn import TeacherCNN
+from src.models.teacher_variants import StrongTeacherCNN
 from src.utils.metrics import evaluate_classification
 from src.utils.model_stats import (
     count_trainable_params,
@@ -35,7 +34,7 @@ except ImportError:
 
 DATA_PATH = os.path.join("processed", "ptbxl_500hz_10s.npz")
 CHECKPOINT_DIR = "checkpoints"
-DEFAULT_TEACHER_CKPT = os.path.join(CHECKPOINT_DIR, "teacher_cnn_best.pt")
+DEFAULT_TEACHER_CKPT = os.path.join(CHECKPOINT_DIR, "teacher_cnn_strong_best.pt")
 
 
 def set_seed(seed: int, deterministic: bool = True, warn_only: bool = True):
@@ -82,12 +81,6 @@ def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
 
 
 def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tensor:
-    """
-    Softer inverse-frequency class weights.
-
-    gamma = 1.0 -> stronger rebalancing
-    gamma = 0.5 -> softer rebalancing
-    """
     classes, counts = np.unique(labels, return_counts=True)
     freq = counts.astype(np.float32) / counts.sum()
     inv = 1.0 / (freq + 1e-6)
@@ -175,7 +168,7 @@ def train_one_epoch(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train improved Teacher CNN on PTB-XL")
+    parser = argparse.ArgumentParser(description="Train strong teacher CNN on PTB-XL")
 
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=2e-4)
@@ -197,7 +190,7 @@ def parse_args():
         "--teacher_ckpt",
         type=str,
         default=DEFAULT_TEACHER_CKPT,
-        help="Path to save the best teacher checkpoint",
+        help="Path to save the best strong teacher checkpoint",
     )
 
     parser.add_argument(
@@ -242,7 +235,7 @@ def save_checkpoint(
             "model_state_dict": state_dict,
             "classes": classes,
             "n_leads": n_leads,
-            "teacher_arch": "TeacherCNN",
+            "teacher_arch": "StrongTeacherCNN",
             "best_val_macro_f1": best_val_macro_f1,
             "epoch": epoch,
             "seed": args.seed,
@@ -266,36 +259,12 @@ def main():
     print("Teacher checkpoint path:", args.teacher_ckpt, flush=True)
     print("Deterministic mode:", deterministic, flush=True)
     print("Deterministic warn_only:", warn_only, flush=True)
-    print(
-        "Training: batch_size={}, lr={}, epochs={}, patience={}, warmup_epochs={}, "
-        "min_lr_factor={}, weight_decay={}, class_weight_gamma={}, label_smoothing={}, "
-        "grad_clip={}, num_workers={}".format(
-            args.batch_size,
-            args.lr,
-            args.epochs,
-            args.patience,
-            args.warmup_epochs,
-            args.min_lr_factor,
-            args.weight_decay,
-            args.class_weight_gamma,
-            args.label_smoothing,
-            args.grad_clip,
-            args.num_workers,
-        ),
-        flush=True,
-    )
 
     X_train, y_train, X_val, y_val, X_test, y_test, classes = load_splits()
     n_leads = X_train.shape[1]
     n_classes = len(classes)
 
-    print("Training set size:", X_train.shape[0], flush=True)
-    print("Validation set size:", X_val.shape[0], flush=True)
-    print("Test set size:", X_test.shape[0], flush=True)
-    print("Number of leads:", n_leads, "classes:", n_classes, flush=True)
-    print("Classes:", classes, flush=True)
-
-    train_transform = ECGAugment(
+train_transform = ECGAugment(
     noise_std=0.004,
     scale_range=(0.97, 1.03),
     max_shift=30,
@@ -345,7 +314,7 @@ def main():
         **common_loader_kwargs,
     )
 
-    model = TeacherCNN(n_leads=n_leads, n_classes=n_classes).to(device)
+    model = StrongTeacherCNN(n_leads=n_leads, n_classes=n_classes).to(device)
 
     print("Trainable parameters:", count_trainable_params(model), flush=True)
     print("Total parameters:", count_all_params(model), flush=True)
