@@ -1,170 +1,93 @@
-# Experiment 3 — Alpha Sweep (Weak Student)
+# Experiment 3: Alpha Sweep
 
-## Objective
+This experiment studies the effect of alpha in knowledge distillation while keeping temperature fixed at 4.
 
-This experiment investigates the effect of the **alpha parameter** in knowledge distillation.
+## Goal
 
-Alpha controls the balance between:
-
-- **Hard label supervision** (cross-entropy with ground truth labels)
-- **Teacher supervision** (KL divergence with teacher predictions)
-
-The distillation loss used in training is:
-
-Loss = alpha * CE + (1 - alpha) * KD
-
-The goal of this experiment is to determine which balance between these two components produces the best student model performance.
-
----
-
-## Student Model
-
-This experiment uses the intentionally reduced-capacity architecture:
-
-WeakStudentCNN
-
-A weaker student helps expose clearer trends in knowledge distillation behaviour.
-
----
-
-## Teacher Model
-
-All experiments use the same pretrained teacher model:
-
-checkpoints/teacher_cnn_best.pt
-
-Teacher architecture:
-
-TeacherCNN
-
-The teacher model remains frozen during student training.
-
----
-
-## Training Configuration
-
-Common training parameters
-
-Parameter | Value
---------- | -----
-Batch size | 64
-Learning rate | 3e-4
-Epochs | 50
-Early stopping patience | 10
-Temperature | 4.0
-Class weighting gamma | 0.5
-
-The **alpha parameter** is varied.
-
----
+Evaluate how different alpha values affect student model performance while keeping the rest of the KD setup unchanged.
 
 ## Alpha Values Tested
 
-0.1  
-0.3  
-0.5  
-0.7  
-0.9  
+- 0.1
+- 0.3
+- 0.5
+- 0.7
+- 0.9
 
-Each value is trained in a separate SLURM job.
+## Setup
 
-Interpretation:
+All runs use:
 
-Alpha | Training Emphasis
------ | ----------------
-0.1 | Mostly teacher guidance
-0.3 | Teacher-dominant supervision
-0.5 | Balanced KD and labels
-0.7 | Label-dominant supervision
-0.9 | Mostly hard labels
+- the same teacher checkpoints from the root checkpoints/ directory
+- the same seeds: 42, 123, 999
+- the same student size: small
+- the same optimisation and training hyperparameters
+- the same temperature: 4.0
 
----
+Only the alpha value is changed.
 
-## Running the Experiment
+## Structure
 
-From the repository root run:
+experiments/3__alpha_sweep/
+├── checkpoints/
+├── logs/
+│   └── tmp/
+├── README.md
+├── run_A01.slurm
+├── run_A03.slurm
+├── run_A05.slurm
+├── run_A07.slurm
+├── run_A09.slurm
+└── run_all.sh
 
-./experiments/3__alpha_sweep/run_all.sh
+## Teacher Checkpoints
 
-This script submits the following jobs:
+These runs read teacher checkpoints from:
 
-run_A01.slurm  
-run_A03.slurm  
-run_A05.slurm  
-run_A07.slurm  
-run_A09.slurm  
+checkpoints/teacher_cnn_seed42.pt
+checkpoints/teacher_cnn_seed123.pt
+checkpoints/teacher_cnn_seed999.pt
 
----
+These are shared base teacher checkpoints.
 
 ## Outputs
 
-Logs are stored in:
+This experiment writes its own outputs into:
 
-experiments/3__alpha_sweep/logs/
+- checkpoints: experiments/3__alpha_sweep/checkpoints/
+- logs: experiments/3__alpha_sweep/logs/
+- temporary per-seed logs: experiments/3__alpha_sweep/logs/tmp/
 
-Example files:
+Student checkpoints are saved as:
 
-A01_<jobid>.out  
-A03_<jobid>.out  
-A05_<jobid>.out  
-A07_<jobid>.out  
-A09_<jobid>.out  
+- student_A01_seed{SEED}.pt
+- student_A03_seed{SEED}.pt
+- student_A05_seed{SEED}.pt
+- student_A07_seed{SEED}.pt
+- student_A09_seed{SEED}.pt
 
----
+## How to Run
 
-## Checkpoints
+Run everything:
 
-Best models for each alpha value are saved in:
+./experiments/3__alpha_sweep/run_all.sh
 
-experiments/3__alpha_sweep/checkpoints/
+Or submit manually:
 
-weak_student_A01.pt  
-weak_student_A03.pt  
-weak_student_A05.pt  
-weak_student_A07.pt  
-weak_student_A09.pt  
+sbatch experiments/3__alpha_sweep/run_A01.slurm
+sbatch experiments/3__alpha_sweep/run_A03.slurm
+sbatch experiments/3__alpha_sweep/run_A05.slurm
+sbatch experiments/3__alpha_sweep/run_A07.slurm
+sbatch experiments/3__alpha_sweep/run_A09.slurm
 
----
+## Expected Insight
 
-## Metrics Recorded
+This experiment should show how the balance between hard-label supervision and distillation supervision affects KD performance.
 
-For each alpha value the following metrics are recorded:
+Typical interpretation:
 
-• Test Accuracy  
-• Test Macro-F1  
-• Test Weighted-F1  
-• Model checkpoint size  
-• Inference latency  
+- lower alpha gives more weight to hard labels
+- higher alpha gives more weight to KD targets
+- a middle value often works best
 
-Results should be stored in:
-
-results.csv
-
----
-
-## Expected Outcome
-
-Knowledge distillation typically performs best with a balanced alpha value.
-
-Example expected pattern:
-
-Alpha | Test Macro-F1
------ | --------------
-0.1 | 0.63
-0.3 | 0.65
-0.5 | 0.66
-0.7 | 0.64
-0.9 | 0.61
-
-Values too close to 1.0 reduce the influence of teacher knowledge, while values too close to 0 rely too heavily on teacher predictions.
-
----
-
-## Purpose in the Study
-
-This experiment helps determine the optimal balance between:
-
-- Direct supervision from labelled ECG data
-- Soft supervision from the teacher model
-
-It forms an important part of the **knowledge distillation ablation study**.
+This experiment identifies which alpha is best for this setup at temperature 4.

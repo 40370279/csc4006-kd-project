@@ -3,9 +3,9 @@
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=24G
-#SBATCH --time=04:00:00
-#SBATCH --output=logs/teacher_%j.out
+#SBATCH --mem=32G
+#SBATCH --time=08:00:00
+#SBATCH --output=logs/teacher/teacher_%j.out
 
 set -euo pipefail
 
@@ -18,14 +18,22 @@ cd "$PROJECT_DIR"
 export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-mkdir -p logs checkpoints logs/tmp
+# ===== DIRECTORIES =====
+LOG_DIR="logs/teacher"
+TMP_LOG_DIR="logs/teacher/tmp"
+CKPT_DIR="checkpoints/teacher"
 
-echo "===== BASE TEACHER RUN ====="
-echo "This job runs multiple seeds: 42, 123, 999"
+mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
+
+echo "===== TEACHER RUN ====="
+echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
-echo "Start time: $(date)"
+echo "Start: $(date)"
 echo "Working directory: $(pwd)"
+echo "Log dir: $LOG_DIR"
+echo "Temp log dir: $TMP_LOG_DIR"
+echo "Checkpoint dir: $CKPT_DIR"
 echo
 
 SEEDS=(42 123 999)
@@ -38,22 +46,23 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="logs/tmp/teacher_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  SEED_LOG="${TMP_LOG_DIR}/teacher_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
 
   python3 -u scripts/train_teacher.py \
-    --batch_size 48 \
-    --lr 2e-4 \
-    --epochs 120 \
-    --patience 20 \
-    --warmup_epochs 8 \
-    --min_lr_factor 0.08 \
-    --weight_decay 3e-4 \
-    --class_weight_gamma 0.5 \
-    --label_smoothing 0.05 \
-    --grad_clip 1.0 \
+    --batch_size 64 \
+    --lr 8e-4 \
+    --epochs 90 \
+    --patience 18 \
+    --warmup_epochs 5 \
+    --min_lr_factor 0.02 \
+    --weight_decay 1e-3 \
+    --class_weight_gamma 0.20 \
+    --sampler_power 0.35 \
+    --label_smoothing 0.03 \
     --num_workers 2 \
     --seed "$SEED" \
-    --teacher_ckpt "checkpoints/teacher_cnn_seed${SEED}.pt" \
+    --teacher_size large \
+    --teacher_ckpt "${CKPT_DIR}/teacher_cnn_seed${SEED}.pt" \
     2>&1 | tee "$SEED_LOG"
 
   ACC_VAL=$(grep -F "Test Accuracy:" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
@@ -61,7 +70,7 @@ do
   WEIGHTED_VAL=$(grep -F "Test Weighted-F1:" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
 
   if [[ -z "${ACC_VAL:-}" || -z "${MACRO_VAL:-}" || -z "${WEIGHTED_VAL:-}" ]]; then
-    echo "ERROR: Failed to parse teacher metrics for seed $SEED"
+    echo "ERROR: Failed to parse metrics for seed $SEED"
     echo "Check log: $SEED_LOG"
     exit 1
   fi
@@ -81,7 +90,7 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== BASE TEACHER SUMMARY ====="
+echo "===== TEACHER SUMMARY ====="
 
 python3 - <<EOF
 import numpy as np
@@ -97,4 +106,4 @@ print(f"Weighted F1  : {weighted.mean():.4f} ± {weighted.std():.4f}")
 EOF
 
 echo
-echo "Finished at: $(date)"
+echo "Finished: $(date)"

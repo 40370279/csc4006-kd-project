@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class SEBlock(nn.Module):
@@ -148,13 +149,15 @@ class GlobalStatsPool1D(nn.Module):
         return torch.cat([mean, std], dim=1)
 
 
-class TeacherCNN(nn.Module):
+class NewTeacherCNN(nn.Module):
     """
-    Improved teacher for PTB-XL:
-    - multi-scale residual blocks
-    - SE attention
-    - statistics pooling
-    - cleaner and less over-regularised than the old teacher
+    Stronger and better-calibrated teacher for PTB-XL.
+
+    Design goals:
+    - still clearly larger than the student
+    - similar ECG inductive bias (multi-scale residual + SE)
+    - less over-regularised than the old teacher
+    - more stable global representation via statistics pooling
     """
 
     SIZE_CONFIGS = {
@@ -261,3 +264,7 @@ class TeacherCNN(nn.Module):
             return logits, features
 
         return logits
+
+
+# Optional compatibility alias if you want to swap imports more easily.
+TeacherCNN = NewTeacherCNN

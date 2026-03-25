@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=temp_T2
+#SBATCH --job-name=exp2_T2
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
-#SBATCH --time=03:00:00
+#SBATCH --time=06:00:00
 #SBATCH --output=experiments/2__temperature_sweep/logs/T2_%j.out
 
 set -euo pipefail
@@ -13,26 +13,25 @@ module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="/users/40370279/csc4006/code"
+EXP_DIR="$PROJECT_DIR/experiments/2__temperature_sweep"
+LOG_DIR="$EXP_DIR/logs"
+TMP_LOG_DIR="$LOG_DIR/tmp"
+CKPT_DIR="$EXP_DIR/checkpoints"
+
 cd "$PROJECT_DIR"
 
 export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
-mkdir -p experiments/2__temperature_sweep/checkpoints
-mkdir -p experiments/2__temperature_sweep/logs/tmp
+mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-TEACHER_CKPT="checkpoints/teacher_cnn_best.pt"
-if [[ ! -f "$TEACHER_CKPT" ]]; then
-  echo "ERROR: Teacher checkpoint not found: $TEACHER_CKPT"
-  exit 1
-fi
-
-echo "===== EXPERIMENT 2: TEMPERATURE SWEEP (T=2) ====="
-echo "This job runs seeds: 42, 123, 999"
+echo "===== EXPERIMENT 2: TEMPERATURE = 2 ====="
+echo "Teacher checkpoints source: $PROJECT_DIR/checkpoints/teacher"
+echo "Student outputs directory : $EXP_DIR"
+echo "This job runs multiple seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
 echo "Start time: $(date)"
-echo "Working directory: $(pwd)"
 echo
 
 SEEDS=(42 123 999)
@@ -45,28 +44,44 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="experiments/2__temperature_sweep/logs/tmp/T2_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  SEED_LOG="$TMP_LOG_DIR/T2_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  TEACHER_CKPT="checkpoints/teacher/teacher_cnn_seed${SEED}.pt"
+  STUDENT_CKPT="$CKPT_DIR/student_T2_seed${SEED}.pt"
 
-  python3 -u scripts/train_student_weak_kd.py \
+  if [[ ! -f "$TEACHER_CKPT" ]]; then
+    echo "ERROR: Missing teacher checkpoint: $TEACHER_CKPT"
+    exit 1
+  fi
+
+  python3 -u scripts/train_student_kd.py \
     --batch_size 64 \
-    --lr 3e-4 \
-    --epochs 50 \
-    --patience 10 \
-    --class_weight_gamma 0.5 \
-    --alpha 0.5 \
-    --temperature 2 \
+    --lr 8e-4 \
+    --epochs 70 \
+    --patience 15 \
+    --weight_decay 2e-3 \
+    --grad_clip 1.0 \
+    --class_weight_gamma 0.0 \
+    --sampler_power 0.35 \
+    --label_smoothing 0.0 \
+    --alpha_start 0.20 \
+    --alpha_end 0.50 \
+    --temperature 2.0 \
+    --logit_mse_weight 0.03 \
+    --feature_mse_weight 0.03 \
+    --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size medium \
-    --student_ckpt "experiments/2__temperature_sweep/checkpoints/weak_student_T2_seed${SEED}.pt" \
+    --student_size small \
+    --teacher_ckpt "$TEACHER_CKPT" \
+    --student_ckpt "$STUDENT_CKPT" \
     2>&1 | tee "$SEED_LOG"
 
-  ACC_VAL=$(grep -F "Test accuracy (weak KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
-  MACRO_VAL=$(grep -F "Test macro-F1 (weak KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
-  WEIGHTED_VAL=$(grep -F "Test weighted-F1 (weak KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  ACC_VAL=$(grep -F "Test accuracy (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  MACRO_VAL=$(grep -F "Test macro-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  WEIGHTED_VAL=$(grep -F "Test weighted-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
 
   if [[ -z "${ACC_VAL:-}" || -z "${MACRO_VAL:-}" || -z "${WEIGHTED_VAL:-}" ]]; then
-    echo "ERROR: Failed to parse T=2 metrics for seed $SEED"
+    echo "ERROR: Failed to parse metrics for seed $SEED"
     echo "Check log: $SEED_LOG"
     exit 1
   fi
@@ -86,7 +101,7 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== TEMPERATURE T=2 SUMMARY ====="
+echo "===== EXPERIMENT 2 SUMMARY: T = 2 ====="
 
 python3 - <<EOF
 import numpy as np

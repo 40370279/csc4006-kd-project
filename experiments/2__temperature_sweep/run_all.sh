@@ -1,25 +1,48 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "Submitting temperature sweep..."
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
-EXP_DIR="experiments/2__temperature_sweep"
-TEACHER_CKPT="checkpoints/teacher_cnn_best.pt"
+echo "===== RUNNING EXPERIMENT 2: TEMPERATURE SWEEP ====="
+echo "Directory : $ROOT_DIR"
+echo "Host      : $(hostname)"
+echo "Start     : $(date)"
+echo
 
-mkdir -p "${EXP_DIR}/logs"
-mkdir -p "${EXP_DIR}/logs/tmp"
-mkdir -p "${EXP_DIR}/checkpoints"
+FILES=(
+  "experiments/2__temperature_sweep/run_T1.slurm"
+  "experiments/2__temperature_sweep/run_T2.slurm"
+  "experiments/2__temperature_sweep/run_T4.slurm"
+  "experiments/2__temperature_sweep/run_T8.slurm"
+  "experiments/2__temperature_sweep/run_T16.slurm"
+  "experiments/2__temperature_sweep/run_T32.slurm"
+)
 
-if [[ ! -f "$TEACHER_CKPT" ]]; then
-  echo "ERROR: Teacher checkpoint not found at $TEACHER_CKPT"
-  exit 1
-fi
+JOB_IDS=()
 
-sbatch "${EXP_DIR}/run_T1.slurm"
-sbatch "${EXP_DIR}/run_T2.slurm"
-sbatch "${EXP_DIR}/run_T4.slurm"
-sbatch "${EXP_DIR}/run_T8.slurm"
-sbatch "${EXP_DIR}/run_T16.slurm"
-sbatch "${EXP_DIR}/run_T32.slurm"
+cd "$ROOT_DIR"
 
-echo "All temperature sweep jobs submitted."
+for FILE in "${FILES[@]}"
+do
+  if [[ ! -f "$FILE" ]]; then
+    echo "ERROR: Missing file $FILE"
+    exit 1
+  fi
+
+  echo "Submitting $FILE ..."
+  SBATCH_OUTPUT=$(sbatch "$FILE")
+  echo "$SBATCH_OUTPUT"
+
+  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $NF}')
+  JOB_IDS+=("$JOB_ID")
+done
+
+echo
+echo "===== SUBMISSION SUMMARY ====="
+for i in "${!FILES[@]}"
+do
+  printf "%-45s -> %s\n" "${FILES[$i]}" "${JOB_IDS[$i]}"
+done
+
+echo
+echo "Submitted at: $(date)"

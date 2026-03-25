@@ -1,4 +1,3 @@
-# train_teacher.py
 import os
 import argparse
 import math
@@ -74,21 +73,24 @@ def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
 
     data = np.load(path, allow_pickle=True, mmap_mode="r")
     return (
-        data["X_train"], data["y_train"],
-        data["X_val"], data["y_val"],
-        data["X_test"], data["y_test"],
+        data["X_train"],
+        data["y_train"],
+        data["X_val"],
+        data["y_val"],
+        data["X_test"],
+        data["y_test"],
         data["classes"],
     )
 
 
-def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tensor:
-    """
-    Softer inverse-frequency class weights.
-
-    gamma = 1.0 -> stronger rebalancing
-    gamma = 0.5 -> softer rebalancing
-    """
+def compute_class_weights(labels: np.ndarray, gamma: float = 0.20) -> torch.Tensor:
     classes, counts = np.unique(labels, return_counts=True)
+
+    if not np.array_equal(classes, np.arange(len(classes))):
+        raise ValueError(
+            f"Labels must be contiguous integers from 0..C-1, but got classes={classes}"
+        )
+
     freq = counts.astype(np.float32) / counts.sum()
     inv = 1.0 / (freq + 1e-6)
     weights = np.power(inv, gamma)
@@ -96,12 +98,10 @@ def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tenso
     return torch.tensor(weights, dtype=torch.float32)
 
 
-def build_weighted_sampler(labels: np.ndarray) -> WeightedRandomSampler:
-    """
-    Build a per-sample weighted sampler so minority classes are sampled more often.
-    """
+def build_weighted_sampler(labels: np.ndarray, power: float = 0.35) -> WeightedRandomSampler:
     class_counts = np.bincount(labels)
-    class_weights = 1.0 / np.maximum(class_counts, 1)
+    class_weights = 1.0 / np.maximum(class_counts, 1).astype(np.float64)
+    class_weights = np.power(class_weights, power)
     sample_weights = class_weights[labels]
     sample_weights = torch.as_tensor(sample_weights, dtype=torch.double)
 
@@ -138,6 +138,7 @@ def train_one_epoch(
     scaler: torch.amp.GradScaler,
     device: torch.device,
     grad_clip: float,
+    ema=None,
 ):
     model.train()
 
@@ -166,6 +167,9 @@ def train_one_epoch(
         scaler.step(optimizer)
         scaler.update()
 
+        if ema is not None:
+            ema.update()
+
         running_loss += loss.item() * X.size(0)
         preds = logits.argmax(dim=1)
         correct += (preds == y).sum().item()
@@ -175,24 +179,34 @@ def train_one_epoch(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Train improved Teacher CNN on PTB-XL")
+    parser = argparse.ArgumentParser(description="Train teacher model on PTB-XL")
 
     parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=2e-4)
+    parser.add_argument("--lr", type=float, default=8e-4)
 
-    parser.add_argument("--epochs", type=int, default=120)
-    parser.add_argument("--patience", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=90)
+    parser.add_argument("--patience", type=int, default=18)
 
-    parser.add_argument("--warmup_epochs", type=int, default=8)
-    parser.add_argument("--min_lr_factor", type=float, default=0.08)
+    parser.add_argument("--warmup_epochs", type=int, default=5)
+    parser.add_argument("--min_lr_factor", type=float, default=0.02)
 
-    parser.add_argument("--weight_decay", type=float, default=3e-4)
-    parser.add_argument("--class_weight_gamma", type=float, default=0.75)
-    parser.add_argument("--label_smoothing", type=float, default=0.05)
+    parser.add_argument("--weight_decay", type=float, default=1e-3)
+    parser.add_argument("--class_weight_gamma", type=float, default=0.20)
+    parser.add_argument("--label_smoothing", type=float, default=0.03)
+    parser.add_argument("--sampler_power", type=float, default=0.35)
 
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
+
+    parser.add_argument(
+        "--teacher_size",
+        type=str,
+        default="large",
+        choices=["medium", "large", "xlarge"],
+        help="Teacher capacity to use",
+    )
+
     parser.add_argument(
         "--teacher_ckpt",
         type=str,
@@ -201,27 +215,32 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--deterministic",
+        "--use_weighted_sampler",
         action="store_true",
-        default=True,
-        help="Enable deterministic algorithm mode where possible.",
+        help="Enable weighted sampling.",
     )
+
     parser.add_argument(
-        "--no_deterministic",
+        "--no_class_weights",
         action="store_true",
-        help="Disable deterministic algorithms entirely.",
+        help="Disable class-weighted CE.",
     )
+
     parser.add_argument(
-        "--deterministic_warn_only",
+        "--disable_augmentation",
         action="store_true",
-        default=True,
-        help="Warn instead of crashing when a deterministic implementation is unavailable.",
+        help="Disable train-time augmentation.",
     )
+
     parser.add_argument(
-        "--strict_deterministic",
-        action="store_true",
-        help="Crash if a deterministic implementation is unavailable.",
+        "--ema_decay",
+        type=float,
+        default=0.999,
+        help="EMA decay. Ignored if torch-ema is unavailable.",
     )
+
+    parser.add_argument("--no_deterministic", action="store_true")
+    parser.add_argument("--strict_deterministic", action="store_true")
 
     return parser.parse_args()
 
@@ -235,21 +254,24 @@ def save_checkpoint(
     epoch: int,
     args,
 ):
-    state_dict = copy.deepcopy(model.state_dict())
+    payload = {
+        "model_state_dict": copy.deepcopy(model.state_dict()),
+        "classes": classes,
+        "n_leads": n_leads,
+        "teacher_arch": "TeacherCNN",
+        "teacher_size": args.teacher_size,
+        "best_val_macro_f1": best_val_macro_f1,
+        "epoch": epoch,
+        "seed": args.seed,
+        "train_args": vars(args),
+    }
 
-    torch.save(
-        {
-            "model_state_dict": state_dict,
-            "classes": classes,
-            "n_leads": n_leads,
-            "teacher_arch": "TeacherCNN",
-            "best_val_macro_f1": best_val_macro_f1,
-            "epoch": epoch,
-            "seed": args.seed,
-            "train_args": vars(args),
-        },
-        path,
-    )
+    tmp_path = path + ".tmp"
+    torch.save(payload, tmp_path)
+    os.replace(tmp_path, path)
+
+    if not os.path.exists(path):
+        raise RuntimeError(f"Checkpoint save failed: {path}")
 
 
 def main():
@@ -263,24 +285,22 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device, flush=True)
     print("Seed:", args.seed, flush=True)
+    print("Teacher size:", args.teacher_size, flush=True)
     print("Teacher checkpoint path:", args.teacher_ckpt, flush=True)
     print("Deterministic mode:", deterministic, flush=True)
     print("Deterministic warn_only:", warn_only, flush=True)
     print(
-        "Training: batch_size={}, lr={}, epochs={}, patience={}, warmup_epochs={}, "
-        "min_lr_factor={}, weight_decay={}, class_weight_gamma={}, label_smoothing={}, "
-        "grad_clip={}, num_workers={}".format(
-            args.batch_size,
-            args.lr,
-            args.epochs,
-            args.patience,
-            args.warmup_epochs,
-            args.min_lr_factor,
-            args.weight_decay,
-            args.class_weight_gamma,
-            args.label_smoothing,
-            args.grad_clip,
-            args.num_workers,
+        (
+            "Training: "
+            f"batch_size={args.batch_size}, lr={args.lr}, epochs={args.epochs}, "
+            f"patience={args.patience}, warmup_epochs={args.warmup_epochs}, "
+            f"min_lr_factor={args.min_lr_factor}, weight_decay={args.weight_decay}, "
+            f"class_weight_gamma={args.class_weight_gamma}, "
+            f"label_smoothing={args.label_smoothing}, sampler_power={args.sampler_power}, "
+            f"grad_clip={args.grad_clip}, num_workers={args.num_workers}, "
+            f"teacher_size={args.teacher_size}, use_weighted_sampler={args.use_weighted_sampler}, "
+            f"class_weights={not args.no_class_weights}, disable_augmentation={args.disable_augmentation}, "
+            f"ema_decay={args.ema_decay}"
         ),
         flush=True,
     )
@@ -295,29 +315,11 @@ def main():
     print("Number of leads:", n_leads, "classes:", n_classes, flush=True)
     print("Classes:", classes, flush=True)
 
-    train_transform = ECGAugment(
-    noise_std=0.004,
-    scale_range=(0.97, 1.03),
-    max_shift=30,
-    lead_drop_prob=0.15,
-    baseline_wander_std=0.02,
-    baseline_freq_range=(0.05, 0.33),
-    max_mask_width=120,
-    stretch_range=(0.99, 1.01),
-    p_scale=0.7,
-    p_noise=0.6,
-    p_shift=0.4,
-    p_lead_drop=0.2,
-    p_baseline=0.25,
-    p_mask=0.2,
-    p_stretch=0.15,
-)
+    train_transform = None if args.disable_augmentation else ECGAugment()
 
     train_dataset = ECGDataset(X_train, y_train, transform=train_transform)
     val_dataset = ECGDataset(X_val, y_val)
     test_dataset = ECGDataset(X_test, y_test)
-
-    train_sampler = build_weighted_sampler(y_train)
 
     common_loader_kwargs = {
         "num_workers": args.num_workers,
@@ -326,12 +328,24 @@ def main():
         "worker_init_fn": seed_worker,
     }
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        sampler=train_sampler,
-        **common_loader_kwargs,
-    )
+    if args.use_weighted_sampler:
+        train_sampler = build_weighted_sampler(y_train, power=args.sampler_power)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            sampler=train_sampler,
+            **common_loader_kwargs,
+        )
+        print("Training sampler: weighted random sampler enabled", flush=True)
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            **common_loader_kwargs,
+        )
+        print("Training sampler: standard shuffled loader", flush=True)
+
     val_loader = DataLoader(
         val_dataset,
         batch_size=args.batch_size,
@@ -345,14 +359,25 @@ def main():
         **common_loader_kwargs,
     )
 
-    model = TeacherCNN(n_leads=n_leads, n_classes=n_classes).to(device)
+    model = TeacherCNN(
+        n_leads=n_leads,
+        n_classes=n_classes,
+        size=args.teacher_size,
+    ).to(device)
 
     print("Trainable parameters:", count_trainable_params(model), flush=True)
     print("Total parameters:", count_all_params(model), flush=True)
     print("Estimated model size (MB): {:.3f}".format(model_size_mb(model)), flush=True)
 
-    class_weights = compute_class_weights(y_train, gamma=args.class_weight_gamma).to(device)
-    print("Class weights:", class_weights.cpu().numpy(), flush=True)
+    if args.no_class_weights:
+        class_weights = None
+        print("Class weights: DISABLED", flush=True)
+    else:
+        class_weights = compute_class_weights(
+            y_train,
+            gamma=args.class_weight_gamma,
+        ).to(device)
+        print("Class weights:", class_weights.cpu().numpy(), flush=True)
 
     criterion = nn.CrossEntropyLoss(
         weight=class_weights,
@@ -363,6 +388,7 @@ def main():
         model.parameters(),
         lr=args.lr,
         weight_decay=args.weight_decay,
+        betas=(0.9, 0.99),
     )
 
     scheduler = build_cosine_with_warmup_scheduler(
@@ -376,7 +402,7 @@ def main():
 
     ema = None
     if HAS_EMA:
-        ema = ExponentialMovingAverage(model.parameters(), decay=0.999)
+        ema = ExponentialMovingAverage(model.parameters(), decay=args.ema_decay)
         print("EMA enabled", flush=True)
     else:
         print("EMA not available (torch-ema not installed)", flush=True)
@@ -385,14 +411,13 @@ def main():
     if ckpt_dir:
         os.makedirs(ckpt_dir, exist_ok=True)
 
-    best_val_macro_f1 = 0.0
+    best_val_macro_f1 = -1.0
     best_epoch = 0
     best_time_sec = 0.0
     epochs_without_improvement = 0
     training_start_time = time.time()
 
     for epoch in range(1, args.epochs + 1):
-        print(f"\nEpoch {epoch}/{args.epochs}", flush=True)
         epoch_start_time = time.time()
 
         train_loss, train_acc = train_one_epoch(
@@ -403,12 +428,10 @@ def main():
             scaler=scaler,
             device=device,
             grad_clip=args.grad_clip,
+            ema=ema,
         )
 
-        if ema is not None and epoch > args.warmup_epochs:
-            ema.update()
-
-        if ema is not None and epoch > args.warmup_epochs:
+        if ema is not None and epoch >= max(3, args.warmup_epochs):
             with ema.average_parameters():
                 val_metrics = evaluate_classification(model, val_loader, device)
         else:
@@ -443,7 +466,7 @@ def main():
             best_time_sec = time.time() - training_start_time
             epochs_without_improvement = 0
 
-            if ema is not None and epoch > args.warmup_epochs:
+            if ema is not None and epoch >= max(3, args.warmup_epochs):
                 with ema.average_parameters():
                     save_checkpoint(
                         path=args.teacher_ckpt,
@@ -465,7 +488,7 @@ def main():
                     args=args,
                 )
 
-            print("  -> Saved NEW BEST model to", args.teacher_ckpt, flush=True)
+            print("  -> Saved best teacher model to", args.teacher_ckpt, flush=True)
         else:
             epochs_without_improvement += 1
             if epochs_without_improvement >= args.patience:
@@ -484,22 +507,28 @@ def main():
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)
     print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(args.teacher_ckpt)), flush=True)
     print("Checkpoint seed:", ckpt.get("seed", "UNKNOWN"), flush=True)
+    print("Checkpoint teacher size:", ckpt.get("teacher_size", "UNKNOWN"), flush=True)
+    print("Checkpoint teacher arch:", ckpt.get("teacher_arch", "UNKNOWN"), flush=True)
 
     test_metrics = evaluate_classification(model, test_loader, device)
 
     print("Test Accuracy: {:.4f}".format(test_metrics["acc"]), flush=True)
     print("Test Macro-F1: {:.4f}".format(test_metrics["macro_f1"]), flush=True)
     print("Test Weighted-F1: {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
-    print("Classification Report:", flush=True)
-    print(test_metrics["report"], flush=True)
-    print("Confusion Matrix:", flush=True)
-    print(test_metrics["confusion_matrix"], flush=True)
+
+    if "report" in test_metrics:
+        print("Classification Report:", flush=True)
+        print(test_metrics["report"], flush=True)
+
+    if "confusion_matrix" in test_metrics:
+        print("Confusion Matrix:", flush=True)
+        print(test_metrics["confusion_matrix"], flush=True)
 
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    dummy_input = torch.randn(1, n_leads, X_train.shape[2], device=device)
 
+    dummy_input = torch.randn(1, n_leads, X_train.shape[2], device=device)
     latency_sec = measure_latency(model, dummy_input, device)
     print("Inference latency: {:.4f} ms/sample".format(latency_sec * 1000.0), flush=True)
 

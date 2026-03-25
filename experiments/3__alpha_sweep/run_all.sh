@@ -1,24 +1,46 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "Submitting alpha sweep experiments..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
 
-EXP_DIR="experiments/3__alpha_sweep"
-TEACHER_CKPT="checkpoints/teacher_cnn_best.pt"
+echo "===== RUNNING EXPERIMENT 3: ALPHA SWEEP ====="
+echo "Directory : $SCRIPT_DIR"
+echo "Host      : $(hostname)"
+echo "Start     : $(date)"
+echo
 
-mkdir -p "${EXP_DIR}/logs"
-mkdir -p "${EXP_DIR}/logs/tmp"
-mkdir -p "${EXP_DIR}/checkpoints"
+FILES=(
+  "run_A01.slurm"
+  "run_A03.slurm"
+  "run_A05.slurm"
+  "run_A07.slurm"
+  "run_A09.slurm"
+)
 
-if [[ ! -f "$TEACHER_CKPT" ]]; then
-  echo "ERROR: Teacher checkpoint not found at $TEACHER_CKPT"
-  exit 1
-fi
+JOB_IDS=()
 
-sbatch "${EXP_DIR}/run_A01.slurm"
-sbatch "${EXP_DIR}/run_A03.slurm"
-sbatch "${EXP_DIR}/run_A05.slurm"
-sbatch "${EXP_DIR}/run_A07.slurm"
-sbatch "${EXP_DIR}/run_A09.slurm"
+for FILE in "${FILES[@]}"
+do
+  if [[ ! -f "$FILE" ]]; then
+    echo "ERROR: Missing file $FILE"
+    exit 1
+  fi
 
-echo "All alpha sweep jobs submitted."
+  echo "Submitting $FILE ..."
+  SBATCH_OUTPUT=$(sbatch "$FILE")
+  echo "$SBATCH_OUTPUT"
+
+  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $NF}')
+  JOB_IDS+=("$JOB_ID")
+done
+
+echo
+echo "===== SUBMISSION SUMMARY ====="
+for i in "${!FILES[@]}"
+do
+  printf "%-15s -> %s\n" "${FILES[$i]}" "${JOB_IDS[$i]}"
+done
+
+echo
+echo "Submitted at: $(date)"

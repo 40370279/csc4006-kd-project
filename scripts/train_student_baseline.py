@@ -1,5 +1,3 @@
-#train_student_baseline.py
-# train_student_baseline.py
 import os
 import argparse
 import time
@@ -8,7 +6,7 @@ import numpy as np
 from typing import Tuple
 
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 import torch.nn as nn
 import torch.optim as optim
 
@@ -26,10 +24,10 @@ from src.utils.model_stats import (
 
 DATA_PATH = os.path.join("processed", "ptbxl_500hz_10s.npz")
 CHECKPOINT_DIR = "checkpoints"
-STUDENT_CKPT = os.path.join(CHECKPOINT_DIR, "student_baseline_best.pt")
+DEFAULT_STUDENT_CKPT = os.path.join(CHECKPOINT_DIR, "student_baseline_best.pt")
 
 
-def set_seed(seed: int):
+def set_seed(seed: int, deterministic: bool = True, warn_only: bool = True):
     random.seed(seed)
     np.random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -39,11 +37,14 @@ def set_seed(seed: int):
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
 
-    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.deterministic = deterministic
     torch.backends.cudnn.benchmark = False
 
     try:
-        torch.use_deterministic_algorithms(True)
+        if deterministic:
+            torch.use_deterministic_algorithms(True, warn_only=warn_only)
+        else:
+            torch.use_deterministic_algorithms(False)
     except Exception:
         pass
 
@@ -61,7 +62,6 @@ def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
         )
 
     data = np.load(path, allow_pickle=True, mmap_mode="r")
-
     return (
         data["X_train"],
         data["y_train"],
@@ -73,7 +73,7 @@ def load_splits(path: str = DATA_PATH) -> Tuple[np.ndarray, ...]:
     )
 
 
-def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tensor:
+def compute_class_weights(labels: np.ndarray, gamma: float = 0.20) -> torch.Tensor:
     classes, counts = np.unique(labels, return_counts=True)
 
     if not np.array_equal(classes, np.arange(len(classes))):
@@ -89,12 +89,27 @@ def compute_class_weights(labels: np.ndarray, gamma: float = 0.5) -> torch.Tenso
     return torch.tensor(weights, dtype=torch.float32)
 
 
+def build_weighted_sampler(labels: np.ndarray, power: float = 0.35) -> WeightedRandomSampler:
+    class_counts = np.bincount(labels)
+    class_weights = 1.0 / np.maximum(class_counts, 1).astype(np.float64)
+    class_weights = np.power(class_weights, power)
+    sample_weights = class_weights[labels]
+    sample_weights = torch.as_tensor(sample_weights, dtype=torch.double)
+
+    return WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True,
+    )
+
+
 def train_one_epoch(
     student: nn.Module,
     loader: DataLoader,
     criterion: nn.Module,
     optimizer: optim.Optimizer,
     device: torch.device,
+    grad_clip: float,
 ):
     student.train()
 
@@ -102,21 +117,30 @@ def train_one_epoch(
     correct = 0
     total = 0
 
+    use_amp = device.type == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+
     for X, y in loader:
         X = X.to(device, non_blocking=True)
         y = y.to(device, non_blocking=True)
 
         optimizer.zero_grad(set_to_none=True)
 
-        student_logits = student(X)
-        loss = criterion(student_logits, y)
+        with torch.amp.autocast(device_type="cuda", enabled=use_amp):
+            logits = student(X)
+            loss = criterion(logits, y)
 
-        loss.backward()
-        optimizer.step()
+        scaler.scale(loss).backward()
+
+        if grad_clip is not None and grad_clip > 0:
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(student.parameters(), grad_clip)
+
+        scaler.step(optimizer)
+        scaler.update()
 
         running_loss += loss.item() * X.size(0)
-
-        preds = student_logits.argmax(dim=1)
+        preds = logits.argmax(dim=1)
         correct += (preds == y).sum().item()
         total += y.size(0)
 
@@ -130,71 +154,78 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train baseline student on PTB-XL")
 
     parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--lr", type=float, default=3e-4)
-    parser.add_argument("--epochs", type=int, default=50)
-    parser.add_argument("--patience", type=int, default=10)
+    parser.add_argument("--lr", type=float, default=8e-4)
+    parser.add_argument("--epochs", type=int, default=70)
+    parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--weight_decay", type=float, default=1e-3)
+    parser.add_argument("--grad_clip", type=float, default=1.0)
+    parser.add_argument("--num_workers", type=int, default=2)
 
-    parser.add_argument(
-        "--class_weight_gamma",
-        type=float,
-        default=0.5,
-        help="Softness of inverse-frequency class weighting",
-    )
+    parser.add_argument("--class_weight_gamma", type=float, default=0.20)
+    parser.add_argument("--sampler_power", type=float, default=0.35)
+    parser.add_argument("--label_smoothing", type=float, default=0.03)
 
     parser.add_argument(
         "--student_size",
         type=str,
-        default="small",
+        default="medium",
         choices=["small", "medium", "large"],
-        help="Student capacity to use",
-    )
-
-    parser.add_argument(
-        "--num_workers",
-        type=int,
-        default=2,
-        help="DataLoader workers",
     )
 
     parser.add_argument(
         "--student_ckpt",
         type=str,
-        default=STUDENT_CKPT,
-        help="Path to save the best baseline student checkpoint",
+        default=DEFAULT_STUDENT_CKPT,
+    )
+
+    parser.add_argument(
+        "--use_weighted_sampler",
+        action="store_true",
+        help="Enable weighted sampling.",
     )
 
     parser.add_argument(
         "--disable_augmentation",
         action="store_true",
-        help="Disable training augmentation for stability testing",
     )
+
+    parser.add_argument("--no_deterministic", action="store_true")
+    parser.add_argument("--strict_deterministic", action="store_true")
 
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    set_seed(args.seed)
+
+    deterministic = not args.no_deterministic
+    warn_only = not args.strict_deterministic
+    set_seed(args.seed, deterministic=deterministic, warn_only=warn_only)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device:", device, flush=True)
     print("Seed:", args.seed, flush=True)
+    print("Deterministic mode:", deterministic, flush=True)
+    print("Deterministic warn_only:", warn_only, flush=True)
     print(
-        "Baseline hyperparameters: class_weight_gamma={:.2f}, student_size={}".format(
-            args.class_weight_gamma,
-            args.student_size,
+        (
+            "Baseline hyperparameters: "
+            f"class_weight_gamma={args.class_weight_gamma:.2f}, "
+            f"sampler_power={args.sampler_power:.2f}, "
+            f"label_smoothing={args.label_smoothing:.3f}, "
+            f"student_size={args.student_size}"
         ),
         flush=True,
     )
     print(
-        "Training: batch_size={}, lr={}, epochs={}, patience={}, num_workers={}, disable_augmentation={}".format(
-            args.batch_size,
-            args.lr,
-            args.epochs,
-            args.patience,
-            args.num_workers,
-            args.disable_augmentation,
+        (
+            "Training: "
+            f"batch_size={args.batch_size}, lr={args.lr}, epochs={args.epochs}, "
+            f"patience={args.patience}, weight_decay={args.weight_decay}, "
+            f"grad_clip={args.grad_clip}, num_workers={args.num_workers}, "
+            f"disable_augmentation={args.disable_augmentation}, "
+            f"use_weighted_sampler={args.use_weighted_sampler}"
         ),
         flush=True,
     )
@@ -216,9 +247,6 @@ def main():
     val_dataset = ECGDataset(X_val, y_val)
     test_dataset = ECGDataset(X_test, y_test)
 
-    train_gen = torch.Generator()
-    train_gen.manual_seed(args.seed)
-
     common_loader_kwargs = {
         "num_workers": args.num_workers,
         "pin_memory": torch.cuda.is_available(),
@@ -226,13 +254,43 @@ def main():
         "worker_init_fn": seed_worker,
     }
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        generator=train_gen,
-        **common_loader_kwargs,
-    )
+    student = StudentCNN(
+        n_leads=n_leads,
+        n_classes=n_classes,
+        size=args.student_size,
+    ).to(device)
+
+    print("Trainable parameters:", count_trainable_params(student), flush=True)
+    print("Total parameters:", count_all_params(student), flush=True)
+    print("Estimated model size (MB): {:.3f}".format(model_size_mb(student)), flush=True)
+
+    class_weights = compute_class_weights(
+        np.array(y_train),
+        gamma=args.class_weight_gamma,
+    ).to(device)
+    print("Class weights:", class_weights.cpu().numpy(), flush=True)
+
+    if args.use_weighted_sampler:
+        train_sampler = build_weighted_sampler(
+            np.array(y_train),
+            power=args.sampler_power,
+        )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            sampler=train_sampler,
+            **common_loader_kwargs,
+        )
+        print("Training sampler: weighted random sampler enabled", flush=True)
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            **common_loader_kwargs,
+        )
+        print("Training sampler: standard shuffled loader", flush=True)
+
     val_loader = DataLoader(
         val_dataset,
         batch_size=args.batch_size,
@@ -246,29 +304,22 @@ def main():
         **common_loader_kwargs,
     )
 
-    student = StudentCNN(
-        n_leads=n_leads,
-        n_classes=n_classes,
-        size=args.student_size,
-    ).to(device)
+    criterion = nn.CrossEntropyLoss(
+        weight=class_weights,
+        label_smoothing=args.label_smoothing,
+    )
 
-    print("Trainable parameters:", count_trainable_params(student), flush=True)
-    print("Total parameters:", count_all_params(student), flush=True)
-    print("Estimated model size (MB): {:.3f}".format(model_size_mb(student)), flush=True)
+    optimizer = optim.AdamW(
+        student.parameters(),
+        lr=args.lr,
+        weight_decay=args.weight_decay,
+        betas=(0.9, 0.99),
+    )
 
-    class_weights = compute_class_weights(
-        np.array(y_train), gamma=args.class_weight_gamma
-    ).to(device)
-    print("Class weights:", class_weights.cpu().numpy(), flush=True)
-
-    criterion = nn.CrossEntropyLoss(weight=class_weights)
-
-    optimizer = optim.Adam(student.parameters(), lr=args.lr)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(
         optimizer,
-        mode="max",
-        factor=0.5,
-        patience=2,
+        T_max=args.epochs,
+        eta_min=1e-5,
     )
 
     ckpt_dir = os.path.dirname(args.student_ckpt)
@@ -285,11 +336,12 @@ def main():
         epoch_start_time = time.time()
 
         train_loss, train_acc = train_one_epoch(
-            student,
-            train_loader,
-            criterion,
-            optimizer,
-            device,
+            student=student,
+            loader=train_loader,
+            criterion=criterion,
+            optimizer=optimizer,
+            device=device,
+            grad_clip=args.grad_clip,
         )
 
         val_metrics = evaluate_classification(student, val_loader, device)
@@ -297,18 +349,21 @@ def main():
         val_macro_f1 = val_metrics["macro_f1"]
         val_weighted_f1 = val_metrics["weighted_f1"]
 
-        scheduler.step(val_macro_f1)
-
+        scheduler.step()
         epoch_time = time.time() - epoch_start_time
+        current_lr = optimizer.param_groups[0]["lr"]
 
         print(
-            "[Epoch {:02d}] train_loss={:.4f}, train_acc={:.4f}, val_acc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, epoch_time={:.2f}s".format(
+            "[Epoch {:03d}] train_loss={:.4f}, train_acc={:.4f}, "
+            "val_acc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
+            "lr={:.6f}, epoch_time={:.2f}s".format(
                 epoch,
                 train_loss,
                 train_acc,
                 val_acc,
                 val_macro_f1,
                 val_weighted_f1,
+                current_lr,
                 epoch_time,
             ),
             flush=True,
@@ -326,9 +381,17 @@ def main():
                     "classes": classes,
                     "n_leads": n_leads,
                     "student_size": args.student_size,
-                    "class_weight_gamma": args.class_weight_gamma,
                     "seed": args.seed,
+                    "lr": args.lr,
+                    "epochs": args.epochs,
+                    "patience": args.patience,
+                    "weight_decay": args.weight_decay,
+                    "grad_clip": args.grad_clip,
+                    "class_weight_gamma": args.class_weight_gamma,
+                    "sampler_power": args.sampler_power,
+                    "label_smoothing": args.label_smoothing,
                     "disable_augmentation": args.disable_augmentation,
+                    "use_weighted_sampler": args.use_weighted_sampler,
                     "best_val_macro_f1": best_val_metric,
                     "best_epoch": best_epoch,
                 },
@@ -342,12 +405,14 @@ def main():
                 break
 
     if not os.path.exists(args.student_ckpt):
-        raise FileNotFoundError(f"Best baseline student checkpoint not found: {args.student_ckpt}")
+        raise FileNotFoundError(
+            f"Best baseline student checkpoint not found: {args.student_ckpt}"
+        )
 
     ckpt = torch.load(args.student_ckpt, map_location=device, weights_only=False)
     student.load_state_dict(ckpt["model_state_dict"])
-    print("Loaded best baseline student checkpoint for final test evaluation.", flush=True)
 
+    print("Loaded best baseline student checkpoint for final test evaluation.", flush=True)
     print("Best validation macro-F1: {:.4f}".format(best_val_metric), flush=True)
     print("Best epoch:", best_epoch, flush=True)
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)

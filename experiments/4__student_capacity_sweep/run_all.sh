@@ -1,26 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "Submitting student capacity sweep..."
+PROJECT_DIR="/users/40370279/csc4006/code"
+EXP_DIR="$PROJECT_DIR/experiments/4__student_capacity_sweep"
 
-EXP_DIR="experiments/4__student_capacity_sweep"
-TEACHER_CKPT="checkpoints/teacher_cnn_best.pt"
+cd "$PROJECT_DIR"
 
-mkdir -p "${EXP_DIR}/logs"
-mkdir -p "${EXP_DIR}/logs/tmp"
-mkdir -p "${EXP_DIR}/checkpoints"
+echo "===== SUBMITTING EXPERIMENT 4: STUDENT CAPACITY ====="
 
-if [[ ! -f "$TEACHER_CKPT" ]]; then
-  echo "ERROR: Teacher checkpoint not found at $TEACHER_CKPT"
-  exit 1
-fi
+mkdir -p "$EXP_DIR/checkpoints" "$EXP_DIR/logs" "$EXP_DIR/logs/tmp"
 
-sbatch "${EXP_DIR}/weak_student/run_small.slurm"
-sbatch "${EXP_DIR}/weak_student/run_medium.slurm"
-sbatch "${EXP_DIR}/weak_student/run_large.slurm"
-
-sbatch "${EXP_DIR}/normal_student/run_small.slurm"
-sbatch "${EXP_DIR}/normal_student/run_medium.slurm"
-sbatch "${EXP_DIR}/normal_student/run_large.slurm"
-
-echo "All student capacity jobs submitted."
+for SIZE in small medium large
+do
+  JOB_ID=$(sbatch "$EXP_DIR/student/run_${SIZE}.slurm" | awk '{print $4}')
+  echo "Submitted $SIZE -> Job $JOB_ID"
+done

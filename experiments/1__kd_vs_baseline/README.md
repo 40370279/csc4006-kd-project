@@ -1,115 +1,97 @@
-# Experiment 1 — KD vs Baseline
+# Experiment 1: KD vs Baseline
 
-## Objective
-This experiment evaluates the effect of knowledge distillation (KD) on a lightweight student model for ECG classification using the PTB-XL dataset.
+This experiment compares:
 
-The goal is to determine whether a student model trained using knowledge distillation performs better than the same model trained with standard supervised learning.
+- a standard student baseline model
+- a student trained with knowledge distillation (KD)
 
----
+using the same seed set and experiment-local checkpoints/logs.
 
-## Models Compared
+## Structure
 
-Model | Description
------ | -----------
-Baseline Student | Student CNN trained using standard cross-entropy loss
-KD Student | Student CNN trained using knowledge distillation from the teacher model
-
-Both students use the same architecture so the only difference is the training method.
-
----
-
-## Teacher Model
-
-The KD student uses logits from a pretrained teacher network:
-
-checkpoints/teacher_cnn_best.pt
-
-Teacher architecture:
-TeacherCNN
-
----
-
-## Training Configuration
-
-Common training parameters
-
-Parameter | Value
---------- | -----
-Batch size | 64
-Learning rate | 3e-4
-Epochs | 50
-Early stopping patience | 10
-Class weighting gamma | 0.5
-
-KD-specific parameters
-
-Parameter | Value
---------- | -----
-Alpha | 0.5
-Temperature | 4.0
-
----
-
-## Running the Experiment
-
-From the repository root run:
-
-./experiments/1__kd_vs_baseline/run_all.sh
-
-This script submits two SLURM jobs:
-
-run_baseline.slurm  
-run_kd.slurm
-
----
+experiments/1__kd_vs_baseline/
+├── checkpoints/
+├── logs/
+│   └── tmp/
+├── student/
+│   ├── run_baseline.slurm
+│   └── run_kd.slurm
+├── teacher/
+│   └── run_teacher.slurm
+├── README.md
+└── run_all.sh
 
 ## Outputs
 
-Logs are stored in:
+All outputs for this experiment are isolated inside this folder:
 
-experiments/1__kd_vs_baseline/logs/
+- checkpoints: experiments/1__kd_vs_baseline/checkpoints/
+- logs: experiments/1__kd_vs_baseline/logs/
+- temporary per-seed logs: experiments/1__kd_vs_baseline/logs/tmp/
 
-Example files:
+This avoids overwriting root-level experiment outputs.
 
-baseline_<jobid>.out  
-kd_<jobid>.out
+## Jobs
 
----
+### 1. Teacher
 
-## Checkpoints
+Runs the teacher model across seeds:
 
-Best models are saved in:
+- 42
+- 123
+- 999
 
-experiments/1__kd_vs_baseline/checkpoints/
+Outputs:
+- checkpoints/teacher_cnn_seed{SEED}.pt
 
-student_baseline_best.pt  
-student_kd_best.pt
+### 2. Student Baseline
 
----
+Trains the student model WITHOUT KD using the same seeds.
 
-## Metrics Recorded
+Outputs:
+- checkpoints/student_baseline_seed{SEED}.pt
 
-For each model the following metrics are collected:
+### 3. Student KD
 
-• Test Accuracy  
-• Test Macro-F1  
-• Test Weighted-F1  
-• Model checkpoint size  
-• Inference latency
+Trains the student model WITH knowledge distillation.
 
-Results should be recorded in:
+Requires:
+- teacher checkpoints from this experiment
 
-results.csv
+Outputs:
+- checkpoints/student_kd_seed{SEED}.pt
 
----
+## How to Run
+
+Run everything (recommended):
+
+./experiments/1__kd_vs_baseline/run_all.sh
+
+This will:
+
+1. Train teacher
+2. Then run baseline and KD (after teacher finishes)
+
+Manual run:
+
+sbatch experiments/1__kd_vs_baseline/teacher/run_teacher.slurm
+sbatch experiments/1__kd_vs_baseline/student/run_baseline.slurm
+sbatch experiments/1__kd_vs_baseline/student/run_kd.slurm
+
+IMPORTANT:
+Run teacher first before KD, or KD will fail due to missing checkpoints.
+
+## Notes
+
+- All runs use seeds: 42, 123, 999
+- Metrics are aggregated automatically (mean ± std)
+- Logs are stored per-seed for debugging
+- This experiment is fully isolated from other experiments
 
 ## Expected Outcome
 
-Knowledge distillation should improve student performance while keeping the model lightweight.
+You should observe:
 
-Example expected pattern:
-
-Model | Test Macro-F1
------ | --------------
-Baseline Student | ~0.60
-KD Student | ~0.64
+- Baseline student performance
+- KD student performance
+- Difference between the two

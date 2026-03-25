@@ -1,180 +1,100 @@
-# Experiment 4 — Student Capacity Sweep
+# Experiment 4: Student Capacity Sweep
 
-## Objective
+This experiment studies the effect of student model capacity in knowledge distillation.
 
-This experiment investigates how **student model capacity** affects performance under knowledge distillation.
+## Goal
 
-Two student families are evaluated:
+Evaluate how student model size impacts performance under a fixed KD setup.
 
-- **weak student family**
-- **normal student family**
+Specifically, this experiment investigates:
 
-The goal is to compare how increasing model capacity changes:
+- how performance scales with model capacity
+- whether smaller models benefit more from KD
+- whether larger models saturate performance
 
-- classification performance
-- model size
-- inference latency
-
-This experiment helps show the trade-off between **accuracy and efficiency**, and whether knowledge distillation benefits smaller students more strongly.
-
----
-
-## Student Families
-
-### Weak Student Family
-The weak student family uses `WeakStudentCNN`, a deliberately lower-capacity architecture designed to expose clearer knowledge distillation trends.
-
-The following weak capacities are evaluated:
+## Models Tested
 
 - small
 - medium
 - large
 
-### Normal Student Family
-The normal student family uses `StudentCNN`, a configurable student architecture.
+These correspond to different student architectures defined in the model implementation.
 
-The following normal capacities are evaluated:
+## Setup
 
-- small
-- medium
-- large
+All runs use:
 
----
+- teacher checkpoints from the root checkpoints/ directory
+- the same seeds: 42, 123, 999
+- identical training hyperparameters
+- identical data processing and augmentations
 
-## Teacher Model
+KD configuration is FIXED:
 
-All runs use the same pretrained teacher model:
+- alpha = 0.5
+- temperature = 4.0
 
-checkpoints/teacher_cnn_best.pt
+Only the student model size is changed.
 
-Teacher architecture:
+## Structure
 
-TeacherCNN
+experiments/4__student_capacity_sweep/
+├── checkpoints/
+├── logs/
+│   └── tmp/
+├── student/
+│   ├── run_small.slurm
+│   ├── run_medium.slurm
+│   └── run_large.slurm
+├── README.md
+└── run_all.sh
 
-The teacher model remains fixed and is only used to provide soft targets during student training.
+## Teacher Checkpoints
 
----
+All runs use shared teacher checkpoints from:
 
-## Training Configuration
+checkpoints/teacher_cnn_seed42.pt
+checkpoints/teacher_cnn_seed123.pt
+checkpoints/teacher_cnn_seed999.pt
 
-All runs use the same knowledge distillation setup except for student capacity.
-
-Common parameters:
-
-Parameter | Value
---------- | -----
-Batch size | 64
-Learning rate | 3e-4
-Epochs | 50
-Early stopping patience | 10
-Class weighting gamma | 0.5
-Alpha | 0.5
-Temperature | 4.0
-
-Only the **student family** and **student capacity** change.
-
----
-
-## Folder Layout
-
-This experiment is organised into two subfolders:
-
-- `weak_student/`
-- `normal_student/`
-
-### weak_student/
-Contains the SLURM scripts, logs, and checkpoints for:
-
-- weak small
-- weak medium
-- weak large
-
-### normal_student/
-Contains the SLURM scripts, logs, and checkpoints for:
-
-- normal small
-- normal medium
-- normal large
-
----
-
-## Running the Experiment
-
-From the repository root run:
-
-./experiments/4__student_capacity_sweep/run_all.sh
-
-This submits all six student-capacity jobs:
-
-- weak small
-- weak medium
-- weak large
-- normal small
-- normal medium
-- normal large
-
----
+These are NOT experiment-specific.
 
 ## Outputs
 
-### Logs
+This experiment writes outputs into:
 
-Logs are stored inside the corresponding family folders:
+- checkpoints: experiments/4__student_capacity_sweep/checkpoints/
+- logs: experiments/4__student_capacity_sweep/logs/
+- temporary logs: experiments/4__student_capacity_sweep/logs/tmp/
 
-- `experiments/4__student_capacity_sweep/weak_student/logs/`
-- `experiments/4__student_capacity_sweep/normal_student/logs/`
+Student checkpoints are saved as:
 
-### Checkpoints
+- student_small_seed{SEED}.pt
+- student_medium_seed{SEED}.pt
+- student_large_seed{SEED}.pt
 
-Best checkpoints are stored in:
+Each run logs per-seed results and a final aggregated summary.
 
-- `experiments/4__student_capacity_sweep/weak_student/checkpoints/`
-- `experiments/4__student_capacity_sweep/normal_student/checkpoints/`
+## How to Run
 
----
+Run everything:
 
-## Metrics Recorded
+./experiments/4__student_capacity_sweep/run_all.sh
 
-For each run the following metrics are collected:
+Or submit manually:
 
-- Test Accuracy
-- Test Macro-F1
-- Test Weighted-F1
-- Model checkpoint size
-- Inference latency
+sbatch experiments/4__student_capacity_sweep/student/run_small.slurm
+sbatch experiments/4__student_capacity_sweep/student/run_medium.slurm
+sbatch experiments/4__student_capacity_sweep/student/run_large.slurm
 
-Results should be recorded in:
+## Expected Insight
 
-results.csv
+This experiment reveals how KD interacts with model capacity.
 
----
+Typical findings:
 
-## Expected Outcome
+- small models benefit most from KD (largest relative improvement)
+- medium models provide a strong balance of efficiency and performance
+- large models achieve higher absolute performance but smaller KD gains
 
-As capacity increases, performance is expected to improve, but model size and latency should also increase.
-
-Typical pattern:
-
-- weakest models are fastest and smallest
-- larger models perform better
-- knowledge distillation may provide the largest benefit for lower-capacity students
-
-This experiment is useful for demonstrating the trade-off between:
-
-- compactness
-- speed
-- predictive performance
-
----
-
-## Purpose in the Study
-
-This experiment forms the **student capacity analysis** section of the project.
-
-It complements the earlier experiments by showing:
-
-- whether stronger students consistently outperform weaker ones
-- whether the weak and normal student families behave differently
-- how capacity affects the usefulness of knowledge distillation
-
-Together with the KD-vs-baseline, temperature sweep, and alpha sweep experiments, this provides a strong empirical evaluation of the knowledge distillation framework.
+You may observe diminishing returns as model size increases.

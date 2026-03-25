@@ -1,134 +1,96 @@
-# Experiment 2 — Temperature Sweep (Weak Student)
+# Experiment 2: Temperature Sweep
 
-## Objective
-This experiment investigates the effect of distillation temperature (T) on the performance of a weak student model.
+This experiment studies the effect of temperature in knowledge distillation.
 
-Temperature controls how soft the teacher probability distribution is during knowledge distillation. The goal is to identify which temperature value produces the best student performance.
+## Goal
 
----
+Evaluate how different temperature values affect student model performance while keeping the rest of the setup fixed.
 
-## Student Model
+## Temperatures Tested
 
-This experiment uses a deliberately weaker architecture:
+- 1
+- 2
+- 4
+- 8
+- 16
+- 32
 
-WeakStudentCNN
+## Setup
 
-Reducing model capacity helps expose clearer trends in knowledge distillation behaviour.
+All runs use:
 
----
+- the same teacher checkpoints from the root `checkpoints/` directory
+- the same seeds: 42, 123, 999
+- the same student size: small
+- the same optimisation and training hyperparameters
 
-## Teacher Model
+Only the temperature value is changed.
 
-All runs use the same pretrained teacher checkpoint:
+## Structure
 
-checkpoints/teacher_cnn_best.pt
+experiments/2__temperature_sweep/
+├── checkpoints/
+├── logs/
+│   └── tmp/
+├── README.md
+├── run_all.sh
+├── run_T1.slurm
+├── run_T2.slurm
+├── run_T4.slurm
+├── run_T8.slurm
+├── run_T16.slurm
+└── run_T32.slurm
 
-Teacher architecture:
-TeacherCNN
+## Teacher Checkpoints
 
----
+These runs read teacher checkpoints from:
 
-## Training Configuration
+checkpoints/teacher_cnn_seed42.pt  
+checkpoints/teacher_cnn_seed123.pt  
+checkpoints/teacher_cnn_seed999.pt
 
-Common parameters
-
-Parameter | Value
---------- | -----
-Batch size | 64
-Learning rate | 3e-4
-Epochs | 50
-Early stopping patience | 10
-Class weighting gamma | 0.5
-Alpha | 0.5
-
-The temperature parameter is varied.
-
----
-
-## Temperature Values Tested
-
-1  
-2  
-4  
-8  
-16
-
-Each temperature value is trained in a separate SLURM job.
-
----
-
-## Running the Experiment
-
-From the repository root run:
-
-./experiments/2__temperature_sweep/run_all.sh
-
-This script submits the following jobs:
-
-run_T1.slurm  
-run_T2.slurm  
-run_T4.slurm  
-run_T8.slurm  
-run_T16.slurm
-
----
+These are shared base teacher checkpoints, not experiment-local teacher checkpoints.
 
 ## Outputs
 
-Logs are stored in:
+This experiment writes its own outputs into:
 
-experiments/2__temperature_sweep/logs/
+- checkpoints: experiments/2__temperature_sweep/checkpoints/
+- logs: experiments/2__temperature_sweep/logs/
+- temporary per-seed logs: experiments/2__temperature_sweep/logs/tmp/
 
-Example files:
+Student checkpoints are saved as:
 
-T1_<jobid>.out  
-T2_<jobid>.out  
-T4_<jobid>.out  
-T8_<jobid>.out  
-T16_<jobid>.out
+- student_T1_seed{SEED}.pt
+- student_T2_seed{SEED}.pt
+- student_T4_seed{SEED}.pt
+- student_T8_seed{SEED}.pt
+- student_T16_seed{SEED}.pt
+- student_T32_seed{SEED}.pt
 
----
+## How to Run
 
-## Checkpoints
+Run everything:
 
-Best models for each temperature are saved in:
+./experiments/2__temperature_sweep/run_all.sh
 
-experiments/2__temperature_sweep/checkpoints/
+Or submit manually:
 
-weak_student_T1.pt  
-weak_student_T2.pt  
-weak_student_T4.pt  
-weak_student_T8.pt  
-weak_student_T16.pt
+sbatch experiments/2__temperature_sweep/run_T1.slurm
+sbatch experiments/2__temperature_sweep/run_T2.slurm
+sbatch experiments/2__temperature_sweep/run_T4.slurm
+sbatch experiments/2__temperature_sweep/run_T8.slurm
+sbatch experiments/2__temperature_sweep/run_T16.slurm
+sbatch experiments/2__temperature_sweep/run_T32.slurm
 
----
+## Expected Insight
 
-## Metrics Recorded
+This experiment should show how softer versus sharper teacher distributions affect KD performance.
 
-For each temperature the following metrics are recorded:
+Typical interpretation:
 
-• Test Accuracy  
-• Test Macro-F1  
-• Test Weighted-F1  
-• Model checkpoint size  
-• Inference latency
+- lower temperature gives sharper targets
+- higher temperature gives softer targets
+- a middle temperature often works best
 
-Results should be stored in:
-
-results.csv
-
----
-
-## Expected Outcome
-
-Knowledge distillation typically performs best at moderate temperature values.
-
-Example trend:
-
-Temperature | Test Macro-F1
------------ | --------------
-1 | 0.60
-2 | 0.63
-4 | 0.66
-8 | 0.65
-16 | 0.62
+This experiment identifies which temperature is best for this setup.

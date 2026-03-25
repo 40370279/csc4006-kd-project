@@ -1,37 +1,77 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "Submitting KD vs Baseline experiment..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+EXP_DIR="$PROJECT_DIR/experiments/1__kd_vs_baseline"
 
-EXP_DIR="experiments/1__kd_vs_baseline"
-TEACHER_CKPT="checkpoints/teacher_cnn_best.pt"
+TEACHER_SLURM="$EXP_DIR/teacher/run_teacher.slurm"
+BASELINE_SLURM="$EXP_DIR/student/run_baseline.slurm"
+KD_SLURM="$EXP_DIR/student/run_kd.slurm"
 
-mkdir -p "${EXP_DIR}/logs"
-mkdir -p "${EXP_DIR}/logs/tmp"
-mkdir -p "${EXP_DIR}/checkpoints"
+cd "$PROJECT_DIR"
 
-echo "Submitting baseline student job..."
-BASE_JOB=$(sbatch "${EXP_DIR}/normal_student/run_baseline.slurm")
-echo "$BASE_JOB"
+echo "===== EXPERIMENT 1 RUN ALL ====="
+echo "Project dir : $PROJECT_DIR"
+echo "Experiment  : $EXP_DIR"
+echo "Start time  : $(date)"
+echo
 
-echo "Submitting weak baseline job..."
-WEAK_BASE_JOB=$(sbatch "${EXP_DIR}/weak_student/run_weak_baseline.slurm")
-echo "$WEAK_BASE_JOB"
-
-if [[ ! -f "$TEACHER_CKPT" ]]; then
-  echo "ERROR: Teacher checkpoint not found at $TEACHER_CKPT"
-  echo "Baseline jobs were submitted, but KD jobs were not."
+if [[ ! -f "$TEACHER_SLURM" ]]; then
+  echo "ERROR: Missing teacher slurm file: $TEACHER_SLURM"
   exit 1
 fi
 
-echo "Submitting KD student job..."
-KD_JOB=$(sbatch "${EXP_DIR}/normal_student/run_kd.slurm")
-echo "$KD_JOB"
+if [[ ! -f "$BASELINE_SLURM" ]]; then
+  echo "ERROR: Missing baseline slurm file: $BASELINE_SLURM"
+  exit 1
+fi
 
-echo "Submitting weak KD job..."
-WEAK_KD_JOB=$(sbatch "${EXP_DIR}/weak_student/run_weak_kd.slurm")
-echo "$WEAK_KD_JOB"
+if [[ ! -f "$KD_SLURM" ]]; then
+  echo "ERROR: Missing KD slurm file: $KD_SLURM"
+  exit 1
+fi
 
-echo "------------------------------------"
-echo "All Experiment 1 jobs submitted."
-echo "------------------------------------"
+echo "Submitting teacher job..."
+TEACHER_SUBMIT=$(sbatch "$TEACHER_SLURM")
+echo "$TEACHER_SUBMIT"
+TEACHER_JOB_ID=$(echo "$TEACHER_SUBMIT" | awk '{print $NF}')
+
+if [[ -z "${TEACHER_JOB_ID:-}" ]]; then
+  echo "ERROR: Failed to parse teacher job ID"
+  exit 1
+fi
+
+echo
+echo "Submitting baseline job..."
+BASELINE_SUBMIT=$(sbatch "$BASELINE_SLURM")
+echo "$BASELINE_SUBMIT"
+BASELINE_JOB_ID=$(echo "$BASELINE_SUBMIT" | awk '{print $NF}')
+
+if [[ -z "${BASELINE_JOB_ID:-}" ]]; then
+  echo "ERROR: Failed to parse baseline job ID"
+  exit 1
+fi
+
+echo
+echo "Submitting KD job with dependency on teacher success..."
+KD_SUBMIT=$(sbatch --dependency=afterok:${TEACHER_JOB_ID} "$KD_SLURM")
+echo "$KD_SUBMIT"
+KD_JOB_ID=$(echo "$KD_SUBMIT" | awk '{print $NF}')
+
+if [[ -z "${KD_JOB_ID:-}" ]]; then
+  echo "ERROR: Failed to parse KD job ID"
+  exit 1
+fi
+
+echo
+echo "===== SUBMISSION SUMMARY ====="
+echo "Teacher job ID : $TEACHER_JOB_ID"
+echo "Baseline job ID: $BASELINE_JOB_ID"
+echo "KD job ID      : $KD_JOB_ID"
+echo "KD dependency  : afterok:$TEACHER_JOB_ID"
+echo
+echo "Check queue with:"
+echo "  squeue -u \$USER"
+echo
+echo "Finished submitting at: $(date)"
