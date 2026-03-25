@@ -1,8 +1,23 @@
 #!/bin/bash
 set -euo pipefail
 
-echo "Submitting teacher comparison experiment..."
+PROJECT_DIR="/users/40370279/csc4006/code"
+EXP_DIR="$PROJECT_DIR/experiments/5__teacher_model_comparison/teacher"
 
-sbatch experiments/5__teacher_model_comparison/run_normal_teacher.slurm
-sbatch experiments/5__teacher_model_comparison/run_weak_teacher.slurm
-sbatch experiments/5__teacher_model_comparison/run_strong_teacher.slurm
+cd "$PROJECT_DIR"
+
+echo "===== SUBMITTING EXPERIMENT 5: TEACHER COMPARISON ====="
+
+for SCRIPT in run_normal_teacher.slurm run_strong_teacher.slurm run_xstrong_teacher.slurm
+do
+  SBATCH_OUTPUT=$(sbatch "$EXP_DIR/$SCRIPT")
+  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')
+
+  if [[ -z "${JOB_ID:-}" ]]; then
+    echo "Failed to submit $SCRIPT"
+    echo "sbatch output: $SBATCH_OUTPUT"
+    exit 1
+  fi
+
+  echo "Submitted $SCRIPT -> Job $JOB_ID"
+done

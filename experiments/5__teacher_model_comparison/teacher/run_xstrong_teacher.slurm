@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=exp4_small
+#SBATCH --job-name=teachcmp_xstrong
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
-#SBATCH --mem=24G
-#SBATCH --time=06:00:00
-#SBATCH --output=/users/40370279/csc4006/code/experiments/4__student_capacity_sweep/logs/small_%j.out
+#SBATCH --mem=32G
+#SBATCH --time=12:00:00
+#SBATCH --output=/users/40370279/csc4006/code/experiments/5__teacher_model_comparison/logs/xstrong_teacher_%j.out
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="/users/40370279/csc4006/code"
-EXP_DIR="$PROJECT_DIR/experiments/4__student_capacity_sweep"
+EXP_DIR="$PROJECT_DIR/experiments/5__teacher_model_comparison"
 LOG_DIR="$EXP_DIR/logs"
 TMP_LOG_DIR="$LOG_DIR/tmp"
 CKPT_DIR="$EXP_DIR/checkpoints"
@@ -25,9 +25,9 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 4: SMALL STUDENT ====="
-echo "Teacher checkpoints source: checkpoints/teacher/"
-echo "Alpha schedule = 0.20 -> 0.50, Temperature = 4.0"
+echo "===== EXPERIMENT 5: X-STRONG TEACHER ====="
+echo "Teacher size: xlarge (extended training)"
+echo "Student size: medium"
 echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
@@ -45,8 +45,29 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="$TMP_LOG_DIR/small_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  TEACHER_CKPT="${CKPT_DIR}/teacher_xstrong_seed${SEED}.pt"
+  STUDENT_CKPT="${CKPT_DIR}/kd_student_xstrong_teacher_seed${SEED}.pt"
+  SEED_LOG="${TMP_LOG_DIR}/xstrong_teacher_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
 
+  # --- TRAIN X-STRONG TEACHER ---
+  python3 -u scripts/train_teacher.py \
+    --batch_size 64 \
+    --lr 8e-4 \
+    --epochs 120 \
+    --patience 25 \
+    --warmup_epochs 8 \
+    --min_lr_factor 0.01 \
+    --weight_decay 1e-3 \
+    --class_weight_gamma 0.25 \
+    --sampler_power 0.40 \
+    --label_smoothing 0.02 \
+    --num_workers 2 \
+    --seed "$SEED" \
+    --teacher_size xlarge \
+    --teacher_ckpt "$TEACHER_CKPT" \
+    2>&1 | tee "$SEED_LOG"
+
+  # --- TRAIN STUDENT WITH KD ---
   python3 -u scripts/train_student_kd.py \
     --batch_size 64 \
     --lr 8e-4 \
@@ -57,18 +78,18 @@ do
     --class_weight_gamma 0.0 \
     --sampler_power 0.35 \
     --label_smoothing 0.0 \
-    --alpha_start 0.10 \
-    --alpha_end 0.10 \
+    --alpha_start 0.20 \
+    --alpha_end 0.50 \
     --temperature 4.0 \
     --logit_mse_weight 0.03 \
     --feature_mse_weight 0.03 \
     --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
-    --teacher_ckpt "checkpoints/teacher/teacher_cnn_seed${SEED}.pt" \
-    --student_ckpt "$CKPT_DIR/student_small_seed${SEED}.pt" \
-    2>&1 | tee "$SEED_LOG"
+    --student_size medium \
+    --teacher_ckpt "$TEACHER_CKPT" \
+    --student_ckpt "$STUDENT_CKPT" \
+    2>&1 | tee -a "$SEED_LOG"
 
   ACC_VAL=$(grep -F "Test accuracy (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
   MACRO_VAL=$(grep -F "Test macro-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
@@ -95,15 +116,17 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== SUMMARY: SMALL STUDENT ====="
+echo "===== SUMMARY: X-STRONG TEACHER ====="
 
 python3 - <<EOF
 import numpy as np
+
 acc = np.array([float(x) for x in """$ACC_STR""".split()])
 macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
-print("Model        : SMALL")
+print("Teacher      : X-STRONG (xlarge++)")
+print("Student      : MEDIUM")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))
 print(f"Accuracy     : {acc.mean():.4f} ± {acc.std():.4f}")
 print(f"Macro F1     : {macro.mean():.4f} ± {macro.std():.4f}")

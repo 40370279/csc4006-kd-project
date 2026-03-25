@@ -63,8 +63,8 @@ do
     --class_weight_gamma 0.0 \
     --sampler_power 0.35 \
     --label_smoothing 0.0 \
-    --alpha_start 0.20 \
-    --alpha_end 0.50 \
+    --alpha_start 0.10 \
+    --alpha_end 0.10 \
     --temperature 2.0 \
     --logit_mse_weight 0.03 \
     --feature_mse_weight 0.03 \

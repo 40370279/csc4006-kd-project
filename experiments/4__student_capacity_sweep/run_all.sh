@@ -12,6 +12,14 @@ mkdir -p "$EXP_DIR/checkpoints" "$EXP_DIR/logs" "$EXP_DIR/logs/tmp"
 
 for SIZE in small medium large
 do
-  JOB_ID=$(sbatch "$EXP_DIR/student/run_${SIZE}.slurm" | awk '{print $4}')
+  SBATCH_OUTPUT=$(sbatch "$EXP_DIR/student/run_${SIZE}.slurm")
+  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')
+
+  if [[ -z "${JOB_ID:-}" ]]; then
+    echo "Failed to parse job ID for $SIZE"
+    echo "sbatch output: $SBATCH_OUTPUT"
+    exit 1
+  fi
+
   echo "Submitted $SIZE -> Job $JOB_ID"
 done
