@@ -2,13 +2,13 @@
 set -euo pipefail
 
 PROJECT_DIR="/users/40370279/csc4006/code"
-EXP_DIR="$PROJECT_DIR/experiments/5__teacher_model_comparison/teacher"
+EXP_DIR="$PROJECT_DIR/experiments/6__distillation_component"
 
 cd "$PROJECT_DIR"
 
-echo "===== SUBMITTING EXPERIMENT 5: TEACHER COMPARISON ====="
+echo "===== SUBMITTING EXPERIMENT 6: DISTILLATION COMPONENT ====="
 
-for SCRIPT in run_normal_teacher.slurm run_large_teacher.slurm run_xlarge_teacher.slurm
+for SCRIPT in run_logits_only.slurm run_features_only.slurm run_both.slurm
 do
   SBATCH_OUTPUT=$(sbatch "$EXP_DIR/$SCRIPT")
   JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')

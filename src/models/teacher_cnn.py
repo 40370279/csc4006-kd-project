@@ -158,34 +158,34 @@ class TeacherCNN(nn.Module):
     """
 
     SIZE_CONFIGS = {
-        "medium": {
-            "stem": 64,
-            "channels": [96, 144, 192, 256, 320],
-            "strides":  [1,   2,   2,   2,   2],
-            "dropout":  0.05,
-            "fc_dim":   256,
-            "cls_drop1": 0.20,
-            "cls_drop2": 0.10,
-        },
-        "large": {
-            "stem": 80,
-            "channels": [112, 176, 240, 320, 416],
-            "strides":  [1,   2,   2,   2,   2],
-            "dropout":  0.06,
-            "fc_dim":   320,
-            "cls_drop1": 0.22,
-            "cls_drop2": 0.12,
-        },
-        "xlarge": {
-            "stem": 96,
-            "channels": [128, 192, 272, 368, 480],
-            "strides":  [1,   2,   2,   2,   2],
-            "dropout":  0.08,
-            "fc_dim":   384,
-            "cls_drop1": 0.25,
-            "cls_drop2": 0.15,
-        },
-    }
+    "medium": {
+        "stem": 56,
+        "channels": [80, 128, 176, 224, 288],
+        "strides":  [1,   2,   2,   2,   2],
+        "dropout":  0.04,
+        "fc_dim":   224,
+        "cls_drop1": 0.18,
+        "cls_drop2": 0.08,
+    },
+    "large": {
+        "stem": 80,
+        "channels": [128, 192, 256, 352, 448],
+        "strides":  [1,   2,   2,   2,   2],
+        "dropout":  0.06,
+        "fc_dim":   320,
+        "cls_drop1": 0.22,
+        "cls_drop2": 0.12,
+    },
+    "xlarge": {
+        "stem": 112,
+        "channels": [160, 256, 384, 512, 640],
+        "strides":  [1,   2,   2,   2,   2],
+        "dropout":  0.08,
+        "fc_dim":   448,
+        "cls_drop1": 0.25,
+        "cls_drop2": 0.15,
+    },
+}
 
     def __init__(self, n_leads: int = 12, n_classes: int = 5, size: str = "large"):
         super().__init__()

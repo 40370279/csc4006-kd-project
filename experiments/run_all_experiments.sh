@@ -1,38 +1,45 @@
 #!/bin/bash
 set -euo pipefail
 
-EXPERIMENTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$EXPERIMENTS_DIR/.." && pwd)"
-cd "$PROJECT_ROOT"
-
-mkdir -p logs
-
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="logs/run_all_experiments_${TIMESTAMP}.log"
-
-exec > >(tee -a "$LOG_FILE") 2>&1
+PROJECT_ROOT="$(pwd)"
+EXP_DIR="$PROJECT_ROOT/experiments"
 
 echo "===== RUNNING ALL EXPERIMENTS ====="
-echo "Time: $(date)"
+echo "Start time: $(date)"
+echo "Project root: $PROJECT_ROOT"
 echo
 
-for EXP_DIR in experiments/*/
+EXPERIMENTS=(
+  "1__kd_vs_baseline"
+  "2__temperature_sweep"
+  "3__alpha_sweep"
+  "4__student_capacity_sweep"
+  "5__teacher_model_comparison"
+  "6__distillation_component"
+)
+
+for EXP in "${EXPERIMENTS[@]}"
 do
-    if [[ -f "${EXP_DIR}run_all.sh" ]]; then
-        echo "--------------------------------------"
-        echo "Running: ${EXP_DIR}run_all.sh"
-        echo "--------------------------------------"
+  SCRIPT_PATH="$EXP_DIR/$EXP/run_all.sh"
 
-        bash "${EXP_DIR}run_all.sh"
+  echo "----------------------------------------"
+  echo "Running experiment: $EXP"
+  echo "Script: $SCRIPT_PATH"
+  echo
 
-        echo
-        echo "Finished: ${EXP_DIR}"
-        echo
-    else
-        echo "Skipping ${EXP_DIR} (no run_all.sh)"
-    fi
+  if [[ ! -f "$SCRIPT_PATH" ]]; then
+    echo "ERROR: $SCRIPT_PATH not found"
+    exit 1
+  fi
+
+  chmod +x "$SCRIPT_PATH"
+  bash "$SCRIPT_PATH"
+
+  echo
+  echo "Finished experiment: $EXP"
+  echo "----------------------------------------"
+  echo
 done
 
-echo "===== ALL EXPERIMENTS COMPLETE ====="
-echo "Finished at: $(date)"
-echo "Log saved to: $LOG_FILE"
+echo "===== ALL EXPERIMENTS SUBMITTED ====="
+echo "End time: $(date)"

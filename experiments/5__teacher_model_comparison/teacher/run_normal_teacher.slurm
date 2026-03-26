@@ -28,7 +28,7 @@ mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 echo "===== EXPERIMENT 5: NORMAL TEACHER ====="
 echo "Teacher source: checkpoints/teacher/"
 echo "Teacher size: large"
-echo "Student size: medium"
+echo "Student size: small"
 echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
@@ -47,7 +47,7 @@ do
   echo "----- SEED $SEED -----"
 
   TEACHER_CKPT="checkpoints/teacher/teacher_cnn_seed${SEED}.pt"
-  STUDENT_CKPT="${CKPT_DIR}/kd_student_normal_teacher_seed${SEED}.pt"
+  STUDENT_CKPT="${CKPT_DIR}/kd_student_small_teacher_seed${SEED}.pt"
   SEED_LOG="${TMP_LOG_DIR}/normal_teacher_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
 
   python3 -u scripts/train_student_kd.py \
@@ -68,7 +68,7 @@ do
     --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size medium \
+    --student_size small \
     --teacher_ckpt "$TEACHER_CKPT" \
     --student_ckpt "$STUDENT_CKPT" \
     2>&1 | tee "$SEED_LOG"
@@ -107,8 +107,8 @@ acc = np.array([float(x) for x in """$ACC_STR""".split()])
 macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
-print("Teacher      : NORMAL (large)")
-print("Student      : MEDIUM")
+print("Teacher      : NORMAL")
+print("Student      : SMALL")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))
 print(f"Accuracy     : {acc.mean():.4f} ± {acc.std():.4f}")
 print(f"Macro F1     : {macro.mean():.4f} ± {macro.std():.4f}")

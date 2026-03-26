@@ -8,11 +8,9 @@ cd "$PROJECT_ROOT"
 
 mkdir -p logs
 
-# Create timestamped log file for this submission script
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="logs/submit_all_${TIMESTAMP}.log"
 
-# Redirect ALL output (stdout + stderr) to log file AND terminal
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "===== JOB SUBMISSION SCRIPT ====="
@@ -20,38 +18,44 @@ echo "Time: $(date)"
 echo "Project root: $PROJECT_ROOT"
 echo
 
-echo "Submitting teacher jobs..."
-teacher_regular=$(sbatch slurm/train_teacher.slurm | awk '{print $4}')
-teacher_weak=$(sbatch slurm/train_teacher_weak.slurm | awk '{print $4}')
-teacher_strong=$(sbatch slurm/train_teacher_strong.slurm | awk '{print $4}')
+echo "Submitting teacher job..."
+teacher_job=$(sbatch slurm/train_teacher.slurm | awk '{print $4}')
 
-echo "Teacher job IDs:"
-echo "  regular: $teacher_regular"
-echo "  weak:    $teacher_weak"
-echo "  strong:  $teacher_strong"
+if [[ -z "${teacher_job:-}" ]]; then
+  echo "Failed to submit teacher job"
+  exit 1
+fi
 
-echo
-echo "Submitting baseline student jobs..."
-baseline_regular=$(sbatch slurm/train_student_baseline.slurm | awk '{print $4}')
-baseline_weak=$(sbatch slurm/train_student_baseline_weak.slurm | awk '{print $4}')
-
-echo "Baseline job IDs:"
-echo "  regular baseline: $baseline_regular"
-echo "  weak baseline:    $baseline_weak"
+echo "Teacher job ID:"
+echo "  teacher: $teacher_job"
 
 echo
-echo "Submitting KD jobs with dependency on all teacher jobs..."
-dep="afterok:${teacher_regular}:${teacher_weak}:${teacher_strong}"
+echo "Submitting baseline student job..."
+baseline_job=$(sbatch slurm/train_student_baseline.slurm | awk '{print $4}')
 
-kd_regular=$(sbatch --dependency=$dep slurm/train_student_kd.slurm | awk '{print $4}')
-kd_weak=$(sbatch --dependency=$dep slurm/train_student_kd_weak.slurm | awk '{print $4}')
+if [[ -z "${baseline_job:-}" ]]; then
+  echo "Failed to submit baseline student job"
+  exit 1
+fi
 
-echo "KD job IDs:"
-echo "  regular KD: $kd_regular"
-echo "  weak KD:    $kd_weak"
+echo "Baseline job ID:"
+echo "  baseline: $baseline_job"
 
 echo
-echo "Dependency used for KD jobs: $dep"
+echo "Submitting KD job with dependency on teacher..."
+dep="afterok:${teacher_job}"
+kd_job=$(sbatch --dependency=$dep slurm/train_student_kd.slurm | awk '{print $4}')
+
+if [[ -z "${kd_job:-}" ]]; then
+  echo "Failed to submit KD job"
+  exit 1
+fi
+
+echo "KD job ID:"
+echo "  kd: $kd_job"
+
+echo
+echo "Dependency used for KD job: $dep"
 
 echo
 echo "Submission log saved to: $LOG_FILE"

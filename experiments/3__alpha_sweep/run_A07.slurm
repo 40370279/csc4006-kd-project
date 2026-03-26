@@ -65,7 +65,7 @@ do
     --label_smoothing 0.0 \
     --alpha_start 0.70 \
     --alpha_end 0.70 \
-    --temperature 4.0 \
+    --temperature 1.0 \
     --logit_mse_weight 0.03 \
     --feature_mse_weight 0.03 \
     --projector_lr_scale 1.0 \
