@@ -1,19 +1,18 @@
 #!/bin/bash
-#SBATCH --job-name=exp6_both
+#SBATCH --job-name=exp7_studentkd_noaug
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
 #SBATCH --time=06:00:00
-#SBATCH --output=/users/40370279/csc4006/code/experiments/6__distillation_component/logs/both_%j.out
-
+#SBATCH --output=experiments/7__augmentation_ablation/logs/studentkd_noaug_%j.out
 set -euo pipefail
 
 module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="/users/40370279/csc4006/code"
-EXP_DIR="$PROJECT_DIR/experiments/6__distillation_component"
+EXP_DIR="$PROJECT_DIR/experiments/7__augmentation_ablation"
 LOG_DIR="$EXP_DIR/logs"
 TMP_LOG_DIR="$LOG_DIR/tmp"
 CKPT_DIR="$EXP_DIR/checkpoints"
@@ -25,13 +24,14 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 6: LOGITS + FEATURES ====="
-echo "Teacher checkpoints source: $PROJECT_DIR/checkpoints/teacher"
-echo "Student outputs directory : $EXP_DIR"
-echo "This job runs multiple seeds: 42, 123, 999"
+echo "===== EXPERIMENT 7: KD MEDIUM NO-AUG STUDENT ====="
+echo "Teacher checkpoints source: checkpoints/teacher/"
+echo "Alpha schedule = 0.10 -> 0.10, Temperature = 1.0"
+echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
-echo "Start time: $(date)"
+echo "Start: $(date)"
+echo "Working directory: $(pwd)"
 echo
 
 SEEDS=(42 123 999)
@@ -44,14 +44,7 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="$TMP_LOG_DIR/both_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
-  TEACHER_CKPT="checkpoints/teacher/teacher_cnn_seed${SEED}.pt"
-  STUDENT_CKPT="$CKPT_DIR/student_both_seed${SEED}.pt"
-
-  if [[ ! -f "$TEACHER_CKPT" ]]; then
-    echo "ERROR: Missing teacher checkpoint: $TEACHER_CKPT"
-    exit 1
-  fi
+  SEED_LOG="$TMP_LOG_DIR/studentkd_noaug_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
 
   python3 -u scripts/train_student_kd.py \
     --batch_size 64 \
@@ -71,9 +64,10 @@ do
     --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
-    --teacher_ckpt "$TEACHER_CKPT" \
-    --student_ckpt "$STUDENT_CKPT" \
+    --student_size medium \
+    --disable_augmentation \
+    --teacher_ckpt "checkpoints/teacher/teacher_cnn_seed${SEED}.pt" \
+    --student_ckpt "$CKPT_DIR/studentkd_noaug_seed${SEED}.pt" \
     2>&1 | tee "$SEED_LOG"
 
   ACC_VAL=$(grep -F "Test accuracy (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
@@ -81,7 +75,7 @@ do
   WEIGHTED_VAL=$(grep -F "Test weighted-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
 
   if [[ -z "${ACC_VAL:-}" || -z "${MACRO_VAL:-}" || -z "${WEIGHTED_VAL:-}" ]]; then
-    echo "ERROR: Failed to parse metrics for seed $SEED"
+    echo "ERROR: Failed to parse KD metrics for seed $SEED"
     echo "Check log: $SEED_LOG"
     exit 1
   fi
@@ -101,18 +95,15 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== EXPERIMENT 6 SUMMARY: LOGITS + FEATURES ====="
+echo "===== SUMMARY: KD MEDIUM NO-AUG STUDENT ====="
 
 python3 - <<EOF
 import numpy as np
-
 acc = np.array([float(x) for x in """$ACC_STR""".split()])
 macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
-print("Distillation : logits + features")
-print("Alpha        : 0.1")
-print("Temperature  : 1")
+print("Model        : KD MEDIUM NO-AUG")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))
 print(f"Accuracy     : {acc.mean():.4f} ± {acc.std():.4f}")
 print(f"Macro F1     : {macro.mean():.4f} ± {macro.std():.4f}")
@@ -120,4 +111,4 @@ print(f"Weighted F1  : {weighted.mean():.4f} ± {weighted.std():.4f}")
 EOF
 
 echo
-echo "Finished at: $(date)"
+echo "Finished: $(date)"

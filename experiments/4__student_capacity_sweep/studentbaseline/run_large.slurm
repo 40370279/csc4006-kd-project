@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=exp4_medium
+#SBATCH --job-name=exp4_baseline_large
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
 #SBATCH --time=06:00:00
-#SBATCH --output=/users/40370279/csc4006/code/experiments/4__student_capacity_sweep/logs/medium_%j.out
+#SBATCH --output=experiments/4__student_capacity_sweep/logs/studentbaseline_large_%j.out
 
 set -euo pipefail
 
@@ -13,26 +13,28 @@ module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="/users/40370279/csc4006/code"
-EXP_DIR="$PROJECT_DIR/experiments/4__student_capacity_sweep"
+EXP_DIR="experiments/4__student_capacity_sweep"
 LOG_DIR="$EXP_DIR/logs"
 TMP_LOG_DIR="$LOG_DIR/tmp"
 CKPT_DIR="$EXP_DIR/checkpoints"
 
 cd "$PROJECT_DIR"
 
-export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
+export PYTHONPATH="$(pwd):${PYTHONPATH:-}"
 export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 4: MEDIUM STUDENT ====="
-echo "Teacher checkpoints source: checkpoints/teacher/"
-echo "Alpha schedule = 0.20 -> 0.50, Temperature = 4.0"
+echo "===== EXPERIMENT 4: STUDENT BASELINE LARGE RUN ====="
+echo "Experiment dir: $EXP_DIR"
 echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
 echo "Start: $(date)"
 echo "Working directory: $(pwd)"
+echo "Log dir: $LOG_DIR"
+echo "Temp log dir: $TMP_LOG_DIR"
+echo "Checkpoint dir: $CKPT_DIR"
 echo
 
 SEEDS=(42 123 999)
@@ -45,9 +47,10 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="$TMP_LOG_DIR/medium_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  SEED_LOG="${TMP_LOG_DIR}/studentbaseline_large_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  STUDENT_CKPT="${CKPT_DIR}/studentbaseline_large_seed${SEED}.pt"
 
-  python3 -u scripts/train_student_kd.py \
+  python3 -u scripts/train_student_baseline.py \
     --batch_size 64 \
     --lr 8e-4 \
     --epochs 70 \
@@ -57,25 +60,18 @@ do
     --class_weight_gamma 0.0 \
     --sampler_power 0.35 \
     --label_smoothing 0.0 \
-    --alpha_start 0.10 \
-    --alpha_end 0.10 \
-    --temperature 4.0 \
-    --logit_mse_weight 0.03 \
-    --feature_mse_weight 0.03 \
-    --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size medium \
-    --teacher_ckpt "checkpoints/teacher/teacher_cnn_seed${SEED}.pt" \
-    --student_ckpt "$CKPT_DIR/student_medium_seed${SEED}.pt" \
+    --student_size large \
+    --student_ckpt "$STUDENT_CKPT" \
     2>&1 | tee "$SEED_LOG"
 
-  ACC_VAL=$(grep -F "Test accuracy (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
-  MACRO_VAL=$(grep -F "Test macro-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
-  WEIGHTED_VAL=$(grep -F "Test weighted-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  ACC_VAL=$(grep -F "Test accuracy (baseline student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  MACRO_VAL=$(grep -F "Test macro-F1 (baseline student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
+  WEIGHTED_VAL=$(grep -F "Test weighted-F1 (baseline student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
 
   if [[ -z "${ACC_VAL:-}" || -z "${MACRO_VAL:-}" || -z "${WEIGHTED_VAL:-}" ]]; then
-    echo "ERROR: Failed to parse KD metrics for seed $SEED"
+    echo "ERROR: Failed to parse baseline metrics for seed $SEED"
     echo "Check log: $SEED_LOG"
     exit 1
   fi
@@ -95,15 +91,15 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== SUMMARY: MEDIUM STUDENT ====="
+echo "===== EXPERIMENT 4: STUDENT BASELINE LARGE SUMMARY ====="
 
 python3 - <<EOF
 import numpy as np
+
 acc = np.array([float(x) for x in """$ACC_STR""".split()])
 macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
-print("Model        : MEDIUM")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))
 print(f"Accuracy     : {acc.mean():.4f} ± {acc.std():.4f}")
 print(f"Macro F1     : {macro.mean():.4f} ± {macro.std():.4f}")

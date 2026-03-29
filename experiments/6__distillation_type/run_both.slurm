@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=exp6_features
+#SBATCH --job-name=exp6_both
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
 #SBATCH --time=06:00:00
-#SBATCH --output=/users/40370279/csc4006/code/experiments/6__distillation_component/logs/features_only_%j.out
+#SBATCH --output=/users/40370279/csc4006/code/experiments/6__distillation_type/logs/both_%j.out
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="/users/40370279/csc4006/code"
-EXP_DIR="$PROJECT_DIR/experiments/6__distillation_component"
+EXP_DIR="$PROJECT_DIR/experiments/6__distillation_type"
 LOG_DIR="$EXP_DIR/logs"
 TMP_LOG_DIR="$LOG_DIR/tmp"
 CKPT_DIR="$EXP_DIR/checkpoints"
@@ -25,7 +25,7 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 6: FEATURES ONLY ====="
+echo "===== EXPERIMENT 6: LOGITS + FEATURES ====="
 echo "Teacher checkpoints source: $PROJECT_DIR/checkpoints/teacher"
 echo "Student outputs directory : $EXP_DIR"
 echo "This job runs multiple seeds: 42, 123, 999"
@@ -44,9 +44,9 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="$TMP_LOG_DIR/features_only_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  SEED_LOG="$TMP_LOG_DIR/both_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
   TEACHER_CKPT="checkpoints/teacher/teacher_cnn_seed${SEED}.pt"
-  STUDENT_CKPT="$CKPT_DIR/student_features_only_seed${SEED}.pt"
+  STUDENT_CKPT="$CKPT_DIR/student_both_seed${SEED}.pt"
 
   if [[ ! -f "$TEACHER_CKPT" ]]; then
     echo "ERROR: Missing teacher checkpoint: $TEACHER_CKPT"
@@ -66,7 +66,7 @@ do
     --alpha_start 0.10 \
     --alpha_end 0.10 \
     --temperature 1.0 \
-    --logit_mse_weight 0.0 \
+    --logit_mse_weight 0.03 \
     --feature_mse_weight 0.03 \
     --projector_lr_scale 1.0 \
     --num_workers 2 \
@@ -101,7 +101,7 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== EXPERIMENT 6 SUMMARY: FEATURES ONLY ====="
+echo "===== EXPERIMENT 6 SUMMARY: LOGITS + FEATURES ====="
 
 python3 - <<EOF
 import numpy as np
@@ -110,7 +110,7 @@ acc = np.array([float(x) for x in """$ACC_STR""".split()])
 macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
-print("Distillation : features only")
+print("Distillation : logits + features")
 print("Alpha        : 0.1")
 print("Temperature  : 1")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))

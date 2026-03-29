@@ -8,7 +8,7 @@ cd "$PROJECT_DIR"
 
 echo "===== SUBMITTING EXPERIMENT 5: TEACHER COMPARISON ====="
 
-for SCRIPT in run_normal_teacher.slurm run_large_teacher.slurm run_xlarge_teacher.slurm
+for SCRIPT in run_medium_teacher.slurm run_large_teacher.slurm run_xlarge_teacher.slurm
 do
   SBATCH_OUTPUT=$(sbatch "$EXP_DIR/$SCRIPT")
   JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')

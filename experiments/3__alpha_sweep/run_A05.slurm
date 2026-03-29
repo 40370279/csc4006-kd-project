@@ -25,7 +25,7 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 3: ALPHA = 0.5, TEMPERATURE = 4 ====="
+echo "===== EXPERIMENT 3: ALPHA = 0.5, TEMPERATURE = 1 ====="
 echo "Teacher checkpoints source: $PROJECT_DIR/checkpoints/teacher"
 echo "Student outputs directory : $EXP_DIR"
 echo "This job runs multiple seeds: 42, 123, 999"
@@ -71,7 +71,7 @@ do
     --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
+    --student_size medium \
     --teacher_ckpt "$TEACHER_CKPT" \
     --student_ckpt "$STUDENT_CKPT" \
     2>&1 | tee "$SEED_LOG"
@@ -111,7 +111,7 @@ macro = np.array([float(x) for x in """$MACRO_STR""".split()])
 weighted = np.array([float(x) for x in """$WEIGHTED_STR""".split()])
 
 print("Alpha        : 0.5")
-print("Temperature  : 4")
+print("Temperature  : 1")
 print("Seeds        :", " ".join(map(str, [42, 123, 999])))
 print(f"Accuracy     : {acc.mean():.4f} ± {acc.std():.4f}")
 print(f"Macro F1     : {macro.mean():.4f} ± {macro.std():.4f}")

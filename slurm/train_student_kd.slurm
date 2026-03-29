@@ -65,7 +65,7 @@ do
     --projector_lr_scale 1.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
+    --student_size medium \
     --teacher_ckpt "checkpoints/teacher/teacher_cnn_seed${SEED}.pt" \
     --student_ckpt "${CKPT_DIR}/student_kd_seed${SEED}.pt" \
     2>&1 | tee "$SEED_LOG"

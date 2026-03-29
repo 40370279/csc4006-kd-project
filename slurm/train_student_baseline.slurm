@@ -59,7 +59,7 @@ do
     --label_smoothing 0.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
+    --student_size medium \
     --student_ckpt "${CKPT_DIR}/student_baseline_seed${SEED}.pt" \
     2>&1 | tee "$SEED_LOG"
 

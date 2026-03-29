@@ -62,7 +62,7 @@ do
     --label_smoothing 0.0 \
     --num_workers 2 \
     --seed "$SEED" \
-    --student_size small \
+    --student_size medium \
     --student_ckpt "$STUDENT_CKPT" \
     2>&1 | tee "$SEED_LOG"
 
