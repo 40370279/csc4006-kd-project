@@ -1,22 +1,26 @@
-# Ignore massive datasets (ONLY top-level data folder)
+# =========================
+# DATA (large files only)
+# =========================
 /data/
-!/data/.gitkeep
-
-# Ignore specific dataset folder if needed
-/data/ptbxl/
-
-# Keep source code
-!src/data/
-
-# Ignore training output
-/checkpoints/
-/logs/
 /processed/
 
-# Python cache / compiled files
+# =========================
+# EXPERIMENT OUTPUTS
+# =========================
+experiments/**/checkpoints/
+experiments/**/logs/
+
+/checkpoints/
+/logs/
+
+# =========================
+# PYTHON
+# =========================
 __pycache__/
 *.pyc
 
-# macOS system files
+# =========================
+# SYSTEM
+# =========================
 .DS_Store
 **/.DS_Store
