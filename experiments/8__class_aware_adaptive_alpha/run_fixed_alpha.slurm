@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=exp1_kd
+#SBATCH --job-name=exp8_fixed_alpha
 #SBATCH --partition=k2-gpu-v100
 #SBATCH --gres=gpu:v100:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=24G
 #SBATCH --time=06:00:00
-#SBATCH --output=experiments/1__kd_vs_baseline/logs/student_kd_%j.out
+#SBATCH --output=experiments/8__class_aware_adaptive_alpha/logs/fixed_alpha_%j.out
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ module purge
 module load python3/3.10.5/gcc-9.3.0
 
 PROJECT_DIR="."
-EXP_DIR="experiments/1__kd_vs_baseline"
+EXP_DIR="experiments/8__class_aware_adaptive_alpha"
 LOG_DIR="$EXP_DIR/logs"
 TMP_LOG_DIR="$LOG_DIR/tmp"
 CKPT_DIR="$EXP_DIR/checkpoints"
@@ -25,16 +25,13 @@ export CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 mkdir -p "$LOG_DIR" "$TMP_LOG_DIR" "$CKPT_DIR"
 
-echo "===== EXPERIMENT 1: STUDENT KD RUN ====="
+echo "===== EXPERIMENT 8A: FIXED ALPHA KD ====="
 echo "Experiment dir: $EXP_DIR"
 echo "Seeds: 42, 123, 999"
 echo "Job ID: ${SLURM_JOB_ID:-N/A}"
 echo "Host: $(hostname)"
 echo "Start: $(date)"
 echo "Working directory: $(pwd)"
-echo "Log dir: $LOG_DIR"
-echo "Temp log dir: $TMP_LOG_DIR"
-echo "Checkpoint dir: $CKPT_DIR"
 echo
 
 SEEDS=(42 123 999)
@@ -47,9 +44,9 @@ for SEED in "${SEEDS[@]}"
 do
   echo "----- SEED $SEED -----"
 
-  SEED_LOG="${TMP_LOG_DIR}/student_kd_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
-  TEACHER_CKPT="${CKPT_DIR}/teacher_cnn_seed${SEED}.pt"
-  STUDENT_CKPT="${CKPT_DIR}/student_kd_seed${SEED}.pt"
+  SEED_LOG="${TMP_LOG_DIR}/fixed_alpha_seed_${SEED}_${SLURM_JOB_ID:-manual}.log"
+  TEACHER_CKPT="experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed${SEED}.pt"
+  STUDENT_CKPT="${CKPT_DIR}/student_fixed_alpha_seed${SEED}.pt"
 
   if [[ ! -f "$TEACHER_CKPT" ]]; then
     echo "ERROR: Teacher checkpoint not found for seed $SEED"
@@ -57,7 +54,7 @@ do
     exit 1
   fi
 
-  python3 -u scripts/train_student_kd.py \
+  python3 -u scripts/train_student_kd_class_aware_alpha.py \
     --batch_size 64 \
     --lr 8e-4 \
     --epochs 70 \
@@ -78,6 +75,7 @@ do
     --student_size medium \
     --teacher_ckpt "$TEACHER_CKPT" \
     --student_ckpt "$STUDENT_CKPT" \
+    --alpha_mode fixed \
     2>&1 | tee "$SEED_LOG"
 
   ACC_VAL=$(grep -F "Test accuracy (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
@@ -85,7 +83,7 @@ do
   WEIGHTED_VAL=$(grep -F "Test weighted-F1 (KD student):" "$SEED_LOG" | tail -n 1 | awk '{print $NF}')
 
   if [[ -z "${ACC_VAL:-}" || -z "${MACRO_VAL:-}" || -z "${WEIGHTED_VAL:-}" ]]; then
-    echo "ERROR: Failed to parse KD metrics for seed $SEED"
+    echo "ERROR: Failed to parse metrics for seed $SEED"
     echo "Check log: $SEED_LOG"
     exit 1
   fi
@@ -105,7 +103,7 @@ ACC_STR="${ACC_VALUES[*]}"
 MACRO_STR="${MACRO_VALUES[*]}"
 WEIGHTED_STR="${WEIGHTED_VALUES[*]}"
 
-echo "===== EXPERIMENT 1: STUDENT KD SUMMARY ====="
+echo "===== EXPERIMENT 8A: FIXED ALPHA SUMMARY ====="
 
 python3 - <<EOF
 import numpy as np
