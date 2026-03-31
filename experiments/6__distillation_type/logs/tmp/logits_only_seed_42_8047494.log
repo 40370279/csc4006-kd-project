@@ -1,0 +1,20 @@
+Using device: cuda
+Seed: 42
+Deterministic mode: True
+Deterministic warn_only: True
+KD hyperparameters: alpha_start=0.100, alpha_end=0.100, temperature=1.00, logit_mse_weight=0.030, feature_mse_weight=0.000, class_weight_gamma=0.00, sampler_power=0.35, label_smoothing=0.000, student_size=small
+Training: batch_size=64, lr=0.0008, epochs=70, patience=15, weight_decay=0.002, grad_clip=1.0, num_workers=2, disable_augmentation=False, use_weighted_sampler=False
+Teacher checkpoint path: checkpoints/teacher/teacher_cnn_seed42.pt
+Student checkpoint path: /users/40370279/csc4006/code/experiments/6__distillation_component/checkpoints/student_logits_only_seed42.pt
+Training set size: 12957
+Validation set size: 1637
+Test set size: 1650
+Number of leads: 12 classes: 5
+Classes: ['CD' 'HYP' 'MI' 'NORM' 'STTC']
+Trainable parameters (student): 5897
+Total parameters (student): 5897
+Estimated model size (MB): 0.024
+Teacher pooled dim: 896
+Student pooled dim: 18
+Class weights: [1. 1. 1. 1. 1.]
+Training sampler: standard shuffled loader

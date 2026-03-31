@@ -1,0 +1,96 @@
+Using device: cuda
+Seed: 42
+Teacher size: large
+Teacher checkpoint path: experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+Deterministic mode: True
+Deterministic warn_only: True
+Training: batch_size=64, lr=0.0008, epochs=90, patience=18, warmup_epochs=5, min_lr_factor=0.02, weight_decay=0.001, class_weight_gamma=0.2, label_smoothing=0.03, sampler_power=0.35, grad_clip=1.0, num_workers=2, teacher_size=large, use_weighted_sampler=False, class_weights=True, disable_augmentation=False, ema_decay=0.999
+Training set size: 12957
+Validation set size: 1637
+Test set size: 1650
+Number of leads: 12 classes: 5
+Classes: ['CD' 'HYP' 'MI' 'NORM' 'STTC']
+Training sampler: standard shuffled loader
+Trainable parameters: 3111171
+Total parameters: 3111171
+Estimated model size (MB): 11.912
+Class weights: [1.0338018  1.3094392  0.9520142  0.73911804 0.9656268 ]
+EMA enabled
+[Epoch 001] lr=0.000320, train_loss=0.9302, train_acc=0.7290, val_acc=0.7251, val_macro_f1=0.5467, val_weighted_f1=0.7168, epoch_time=28.13s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 002] lr=0.000480, train_loss=0.8048, train_acc=0.7788, val_acc=0.7532, val_macro_f1=0.5416, val_weighted_f1=0.7191, epoch_time=26.93s
+[Epoch 003] lr=0.000640, train_loss=0.7815, train_acc=0.7841, val_acc=0.7605, val_macro_f1=0.6111, val_weighted_f1=0.7444, epoch_time=27.04s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 004] lr=0.000800, train_loss=0.7732, train_acc=0.7869, val_acc=0.7526, val_macro_f1=0.5652, val_weighted_f1=0.7363, epoch_time=27.04s
+[Epoch 005] lr=0.000800, train_loss=0.7575, train_acc=0.7902, val_acc=0.7526, val_macro_f1=0.5625, val_weighted_f1=0.7225, epoch_time=27.19s
+[Epoch 006] lr=0.000800, train_loss=0.7324, train_acc=0.8002, val_acc=0.7831, val_macro_f1=0.6144, val_weighted_f1=0.7657, epoch_time=27.02s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 007] lr=0.000799, train_loss=0.7115, train_acc=0.8082, val_acc=0.7807, val_macro_f1=0.6227, val_weighted_f1=0.7686, epoch_time=26.92s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 008] lr=0.000798, train_loss=0.6929, train_acc=0.8146, val_acc=0.7459, val_macro_f1=0.6101, val_weighted_f1=0.7409, epoch_time=26.96s
+[Epoch 009] lr=0.000796, train_loss=0.6854, train_acc=0.8155, val_acc=0.7202, val_macro_f1=0.5743, val_weighted_f1=0.7086, epoch_time=26.99s
+[Epoch 010] lr=0.000793, train_loss=0.6676, train_acc=0.8213, val_acc=0.7709, val_macro_f1=0.6101, val_weighted_f1=0.7552, epoch_time=27.02s
+[Epoch 011] lr=0.000790, train_loss=0.6584, train_acc=0.8240, val_acc=0.7691, val_macro_f1=0.6164, val_weighted_f1=0.7604, epoch_time=27.02s
+[Epoch 012] lr=0.000787, train_loss=0.6422, train_acc=0.8301, val_acc=0.7746, val_macro_f1=0.6208, val_weighted_f1=0.7607, epoch_time=27.08s
+[Epoch 013] lr=0.000783, train_loss=0.6320, train_acc=0.8318, val_acc=0.7697, val_macro_f1=0.6229, val_weighted_f1=0.7558, epoch_time=27.11s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 014] lr=0.000779, train_loss=0.6229, train_acc=0.8340, val_acc=0.7807, val_macro_f1=0.6311, val_weighted_f1=0.7698, epoch_time=27.02s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 015] lr=0.000774, train_loss=0.6103, train_acc=0.8384, val_acc=0.7764, val_macro_f1=0.6125, val_weighted_f1=0.7593, epoch_time=27.11s
+[Epoch 016] lr=0.000768, train_loss=0.5947, train_acc=0.8436, val_acc=0.7520, val_macro_f1=0.6388, val_weighted_f1=0.7529, epoch_time=26.97s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 017] lr=0.000762, train_loss=0.5839, train_acc=0.8490, val_acc=0.7764, val_macro_f1=0.6410, val_weighted_f1=0.7695, epoch_time=27.07s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 018] lr=0.000756, train_loss=0.5695, train_acc=0.8511, val_acc=0.7801, val_macro_f1=0.6618, val_weighted_f1=0.7769, epoch_time=26.94s
+  -> Saved best teacher model to experiments/1__kd_vs_baseline/checkpoints/teacher_cnn_seed42.pt
+[Epoch 019] lr=0.000749, train_loss=0.5470, train_acc=0.8610, val_acc=0.7679, val_macro_f1=0.6470, val_weighted_f1=0.7648, epoch_time=26.97s
+[Epoch 020] lr=0.000741, train_loss=0.5408, train_acc=0.8604, val_acc=0.7850, val_macro_f1=0.6500, val_weighted_f1=0.7774, epoch_time=27.06s
+[Epoch 021] lr=0.000733, train_loss=0.5184, train_acc=0.8713, val_acc=0.7685, val_macro_f1=0.6446, val_weighted_f1=0.7657, epoch_time=26.90s
+[Epoch 022] lr=0.000725, train_loss=0.5115, train_acc=0.8718, val_acc=0.7685, val_macro_f1=0.6434, val_weighted_f1=0.7618, epoch_time=27.03s
+[Epoch 023] lr=0.000716, train_loss=0.4914, train_acc=0.8800, val_acc=0.7593, val_macro_f1=0.6360, val_weighted_f1=0.7589, epoch_time=27.05s
+[Epoch 024] lr=0.000707, train_loss=0.4722, train_acc=0.8898, val_acc=0.7746, val_macro_f1=0.6486, val_weighted_f1=0.7691, epoch_time=27.05s
+[Epoch 025] lr=0.000698, train_loss=0.4648, train_acc=0.8935, val_acc=0.7703, val_macro_f1=0.6526, val_weighted_f1=0.7677, epoch_time=27.08s
+[Epoch 026] lr=0.000688, train_loss=0.4474, train_acc=0.8973, val_acc=0.7703, val_macro_f1=0.6548, val_weighted_f1=0.7695, epoch_time=27.02s
+[Epoch 027] lr=0.000677, train_loss=0.4277, train_acc=0.9045, val_acc=0.7752, val_macro_f1=0.6523, val_weighted_f1=0.7708, epoch_time=27.19s
+[Epoch 028] lr=0.000667, train_loss=0.4051, train_acc=0.9147, val_acc=0.7636, val_macro_f1=0.6473, val_weighted_f1=0.7603, epoch_time=27.03s
+[Epoch 029] lr=0.000656, train_loss=0.3915, train_acc=0.9180, val_acc=0.7685, val_macro_f1=0.6431, val_weighted_f1=0.7623, epoch_time=26.77s
+[Epoch 030] lr=0.000644, train_loss=0.3746, train_acc=0.9249, val_acc=0.7721, val_macro_f1=0.6331, val_weighted_f1=0.7635, epoch_time=27.17s
+[Epoch 031] lr=0.000633, train_loss=0.3634, train_acc=0.9292, val_acc=0.7673, val_macro_f1=0.6280, val_weighted_f1=0.7605, epoch_time=26.97s
+[Epoch 032] lr=0.000620, train_loss=0.3562, train_acc=0.9330, val_acc=0.7581, val_macro_f1=0.6379, val_weighted_f1=0.7578, epoch_time=27.04s
+[Epoch 033] lr=0.000608, train_loss=0.3395, train_acc=0.9411, val_acc=0.7715, val_macro_f1=0.6393, val_weighted_f1=0.7609, epoch_time=27.02s
+[Epoch 034] lr=0.000596, train_loss=0.3234, train_acc=0.9464, val_acc=0.7752, val_macro_f1=0.6070, val_weighted_f1=0.7591, epoch_time=27.08s
+[Epoch 035] lr=0.000583, train_loss=0.3164, train_acc=0.9497, val_acc=0.7611, val_macro_f1=0.6248, val_weighted_f1=0.7538, epoch_time=27.00s
+[Epoch 036] lr=0.000570, train_loss=0.2972, train_acc=0.9559, val_acc=0.7691, val_macro_f1=0.6176, val_weighted_f1=0.7560, epoch_time=27.05s
+Early stopping
+
+Loaded best checkpoint for final evaluation.
+Best validation macro-F1: 0.6618
+Best epoch: 18
+Time to best model: 494.08 seconds
+Checkpoint size (MB): 12.011
+Checkpoint seed: 42
+Checkpoint teacher size: large
+Checkpoint teacher arch: TeacherCNN
+Test Accuracy: 0.7970
+Test Macro-F1: 0.6618
+Test Weighted-F1: 0.7910
+Classification Report:
+              precision    recall  f1-score   support
+
+           0       0.88      0.66      0.76       184
+           1       0.27      0.20      0.23        56
+           2       0.83      0.65      0.73       256
+           3       0.82      0.91      0.87       912
+           4       0.71      0.76      0.73       242
+
+    accuracy                           0.80      1650
+   macro avg       0.70      0.64      0.66      1650
+weighted avg       0.79      0.80      0.79      1650
+
+Confusion Matrix:
+[[122   5   5  42  10]
+ [  1  11   2  33   9]
+ [  3   1 167  62  23]
+ [ 10  18  19 832  33]
+ [  3   6   9  41 183]]
+Inference latency: 5.7790 ms/sample

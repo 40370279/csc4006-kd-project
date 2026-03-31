@@ -1,0 +1,107 @@
+Using device: cuda
+Seed: 123
+Deterministic mode: True
+Deterministic warn_only: True
+KD hyperparameters: alpha_start=0.100, alpha_end=0.100, temperature=2.00, logit_mse_weight=0.030, feature_mse_weight=0.030, class_weight_gamma=0.00, sampler_power=0.35, label_smoothing=0.000, student_size=medium
+Training: batch_size=64, lr=0.0008, epochs=70, patience=15, weight_decay=0.002, grad_clip=1.0, num_workers=2, disable_augmentation=False, use_weighted_sampler=False
+Teacher checkpoint path: checkpoints/teacher/teacher_cnn_seed123.pt
+Student checkpoint path: /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+Training set size: 12957
+Validation set size: 1637
+Test set size: 1650
+Number of leads: 12 classes: 5
+Classes: ['CD' 'HYP' 'MI' 'NORM' 'STTC']
+Trainable parameters (student): 12809
+Total parameters (student): 12809
+Estimated model size (MB): 0.051
+Teacher pooled dim: 896
+Student pooled dim: 28
+Class weights: [1. 1. 1. 1. 1.]
+Training sampler: standard shuffled loader
+[Epoch 001] train_loss=1.1116, train_hard=1.1071, train_soft=1.0480, train_logit_mse=1.8937, train_feature_mse=0.0283, train_acc=0.6038, alpha=0.100, val_acc=0.6237, val_macro_f1=0.2726, val_weighted_f1=0.5242, lr=0.000800, epoch_time=19.05s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 002] train_loss=0.7446, train_hard=0.8626, train_soft=0.6865, train_logit_mse=1.3329, train_feature_mse=0.0178, train_acc=0.7082, alpha=0.100, val_acc=0.7172, val_macro_f1=0.4859, val_weighted_f1=0.6799, lr=0.000798, epoch_time=17.97s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 003] train_loss=0.5630, train_hard=0.7619, train_soft=0.5065, train_logit_mse=1.0187, train_feature_mse=0.0136, train_acc=0.7487, alpha=0.100, val_acc=0.7440, val_macro_f1=0.5333, val_weighted_f1=0.7131, lr=0.000796, epoch_time=17.75s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 004] train_loss=0.4836, train_hard=0.7191, train_soft=0.4283, train_logit_mse=0.8627, train_feature_mse=0.0090, train_acc=0.7621, alpha=0.100, val_acc=0.7379, val_macro_f1=0.5211, val_weighted_f1=0.7029, lr=0.000794, epoch_time=17.99s
+[Epoch 005] train_loss=0.4273, train_hard=0.6846, train_soft=0.3732, train_logit_mse=0.7613, train_feature_mse=0.0054, train_acc=0.7743, alpha=0.100, val_acc=0.7379, val_macro_f1=0.5277, val_weighted_f1=0.7054, lr=0.000790, epoch_time=17.71s
+[Epoch 006] train_loss=0.4014, train_hard=0.6703, train_soft=0.3478, train_logit_mse=0.7081, train_feature_mse=0.0034, train_acc=0.7819, alpha=0.100, val_acc=0.7404, val_macro_f1=0.5728, val_weighted_f1=0.7269, lr=0.000786, epoch_time=17.94s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 007] train_loss=0.3766, train_hard=0.6567, train_soft=0.3232, train_logit_mse=0.6671, train_feature_mse=0.0022, train_acc=0.7807, alpha=0.100, val_acc=0.7428, val_macro_f1=0.5638, val_weighted_f1=0.7187, lr=0.000781, epoch_time=17.74s
+[Epoch 008] train_loss=0.3650, train_hard=0.6481, train_soft=0.3121, train_logit_mse=0.6423, train_feature_mse=0.0015, train_acc=0.7842, alpha=0.100, val_acc=0.7593, val_macro_f1=0.5765, val_weighted_f1=0.7390, lr=0.000775, epoch_time=17.92s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 009] train_loss=0.3495, train_hard=0.6402, train_soft=0.2968, train_logit_mse=0.6106, train_feature_mse=0.0012, train_acc=0.7887, alpha=0.100, val_acc=0.7520, val_macro_f1=0.5730, val_weighted_f1=0.7305, lr=0.000768, epoch_time=17.79s
+[Epoch 010] train_loss=0.3411, train_hard=0.6345, train_soft=0.2885, train_logit_mse=0.5984, train_feature_mse=0.0011, train_acc=0.7890, alpha=0.100, val_acc=0.7477, val_macro_f1=0.5773, val_weighted_f1=0.7261, lr=0.000761, epoch_time=17.84s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 011] train_loss=0.3295, train_hard=0.6217, train_soft=0.2778, train_logit_mse=0.5742, train_feature_mse=0.0010, train_acc=0.7947, alpha=0.100, val_acc=0.7495, val_macro_f1=0.5721, val_weighted_f1=0.7265, lr=0.000753, epoch_time=17.96s
+[Epoch 012] train_loss=0.3217, train_hard=0.6175, train_soft=0.2701, train_logit_mse=0.5625, train_feature_mse=0.0010, train_acc=0.7963, alpha=0.100, val_acc=0.7618, val_macro_f1=0.6014, val_weighted_f1=0.7440, lr=0.000744, epoch_time=17.91s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 013] train_loss=0.3139, train_hard=0.6130, train_soft=0.2624, train_logit_mse=0.5476, train_feature_mse=0.0009, train_acc=0.7942, alpha=0.100, val_acc=0.7544, val_macro_f1=0.5836, val_weighted_f1=0.7332, lr=0.000735, epoch_time=17.98s
+[Epoch 014] train_loss=0.3093, train_hard=0.6097, train_soft=0.2578, train_logit_mse=0.5416, train_feature_mse=0.0009, train_acc=0.7980, alpha=0.100, val_acc=0.7679, val_macro_f1=0.6219, val_weighted_f1=0.7545, lr=0.000725, epoch_time=17.83s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 015] train_loss=0.3009, train_hard=0.6047, train_soft=0.2497, train_logit_mse=0.5229, train_feature_mse=0.0009, train_acc=0.8000, alpha=0.100, val_acc=0.7703, val_macro_f1=0.6149, val_weighted_f1=0.7561, lr=0.000714, epoch_time=17.82s
+[Epoch 016] train_loss=0.2973, train_hard=0.6029, train_soft=0.2461, train_logit_mse=0.5177, train_feature_mse=0.0008, train_acc=0.7994, alpha=0.100, val_acc=0.7575, val_macro_f1=0.6154, val_weighted_f1=0.7475, lr=0.000702, epoch_time=17.71s
+[Epoch 017] train_loss=0.2894, train_hard=0.5953, train_soft=0.2385, train_logit_mse=0.5071, train_feature_mse=0.0008, train_acc=0.8042, alpha=0.100, val_acc=0.7599, val_macro_f1=0.6155, val_weighted_f1=0.7466, lr=0.000691, epoch_time=17.98s
+[Epoch 018] train_loss=0.2873, train_hard=0.5960, train_soft=0.2363, train_logit_mse=0.5009, train_feature_mse=0.0008, train_acc=0.8057, alpha=0.100, val_acc=0.7709, val_macro_f1=0.6429, val_weighted_f1=0.7641, lr=0.000678, epoch_time=17.85s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 019] train_loss=0.2774, train_hard=0.5888, train_soft=0.2267, train_logit_mse=0.4833, train_feature_mse=0.0007, train_acc=0.8051, alpha=0.100, val_acc=0.7776, val_macro_f1=0.6338, val_weighted_f1=0.7678, lr=0.000665, epoch_time=17.82s
+[Epoch 020] train_loss=0.2784, train_hard=0.5833, train_soft=0.2283, train_logit_mse=0.4855, train_feature_mse=0.0007, train_acc=0.8049, alpha=0.100, val_acc=0.7581, val_macro_f1=0.6099, val_weighted_f1=0.7424, lr=0.000651, epoch_time=17.82s
+[Epoch 021] train_loss=0.2727, train_hard=0.5852, train_soft=0.2221, train_logit_mse=0.4754, train_feature_mse=0.0007, train_acc=0.8055, alpha=0.100, val_acc=0.7569, val_macro_f1=0.6165, val_weighted_f1=0.7458, lr=0.000637, epoch_time=17.87s
+[Epoch 022] train_loss=0.2686, train_hard=0.5796, train_soft=0.2185, train_logit_mse=0.4659, train_feature_mse=0.0007, train_acc=0.8086, alpha=0.100, val_acc=0.7544, val_macro_f1=0.6302, val_weighted_f1=0.7527, lr=0.000623, epoch_time=17.92s
+[Epoch 023] train_loss=0.2638, train_hard=0.5755, train_soft=0.2139, train_logit_mse=0.4579, train_feature_mse=0.0007, train_acc=0.8101, alpha=0.100, val_acc=0.7758, val_macro_f1=0.6394, val_weighted_f1=0.7686, lr=0.000608, epoch_time=17.97s
+[Epoch 024] train_loss=0.2639, train_hard=0.5781, train_soft=0.2136, train_logit_mse=0.4599, train_feature_mse=0.0007, train_acc=0.8124, alpha=0.100, val_acc=0.7550, val_macro_f1=0.6006, val_weighted_f1=0.7370, lr=0.000592, epoch_time=17.83s
+[Epoch 025] train_loss=0.2596, train_hard=0.5743, train_soft=0.2095, train_logit_mse=0.4525, train_feature_mse=0.0006, train_acc=0.8109, alpha=0.100, val_acc=0.7575, val_macro_f1=0.6224, val_weighted_f1=0.7449, lr=0.000576, epoch_time=17.83s
+[Epoch 026] train_loss=0.2551, train_hard=0.5719, train_soft=0.2050, train_logit_mse=0.4437, train_feature_mse=0.0006, train_acc=0.8108, alpha=0.100, val_acc=0.7557, val_macro_f1=0.5955, val_weighted_f1=0.7348, lr=0.000560, epoch_time=17.86s
+[Epoch 027] train_loss=0.2531, train_hard=0.5693, train_soft=0.2032, train_logit_mse=0.4408, train_feature_mse=0.0006, train_acc=0.8094, alpha=0.100, val_acc=0.7666, val_macro_f1=0.6296, val_weighted_f1=0.7565, lr=0.000544, epoch_time=17.83s
+[Epoch 028] train_loss=0.2479, train_hard=0.5625, train_soft=0.1986, train_logit_mse=0.4319, train_feature_mse=0.0006, train_acc=0.8142, alpha=0.100, val_acc=0.7709, val_macro_f1=0.6456, val_weighted_f1=0.7667, lr=0.000527, epoch_time=17.77s
+  -> New best KD student saved to /users/40370279/csc4006/code/experiments/2__temperature_sweep/checkpoints/student_T2_seed123.pt
+[Epoch 029] train_loss=0.2524, train_hard=0.5689, train_soft=0.2027, train_logit_mse=0.4367, train_feature_mse=0.0006, train_acc=0.8110, alpha=0.100, val_acc=0.7599, val_macro_f1=0.6217, val_weighted_f1=0.7478, lr=0.000510, epoch_time=17.81s
+[Epoch 030] train_loss=0.2478, train_hard=0.5644, train_soft=0.1982, train_logit_mse=0.4319, train_feature_mse=0.0006, train_acc=0.8136, alpha=0.100, val_acc=0.7679, val_macro_f1=0.6368, val_weighted_f1=0.7577, lr=0.000493, epoch_time=17.92s
+[Epoch 031] train_loss=0.2435, train_hard=0.5621, train_soft=0.1939, train_logit_mse=0.4232, train_feature_mse=0.0006, train_acc=0.8137, alpha=0.100, val_acc=0.7630, val_macro_f1=0.6283, val_weighted_f1=0.7518, lr=0.000476, epoch_time=17.86s
+[Epoch 032] train_loss=0.2446, train_hard=0.5631, train_soft=0.1951, train_logit_mse=0.4243, train_feature_mse=0.0006, train_acc=0.8109, alpha=0.100, val_acc=0.7630, val_macro_f1=0.6375, val_weighted_f1=0.7560, lr=0.000458, epoch_time=17.69s
+[Epoch 033] train_loss=0.2403, train_hard=0.5615, train_soft=0.1907, train_logit_mse=0.4159, train_feature_mse=0.0006, train_acc=0.8144, alpha=0.100, val_acc=0.7526, val_macro_f1=0.6186, val_weighted_f1=0.7429, lr=0.000440, epoch_time=17.80s
+[Epoch 034] train_loss=0.2377, train_hard=0.5581, train_soft=0.1883, train_logit_mse=0.4136, train_feature_mse=0.0006, train_acc=0.8159, alpha=0.100, val_acc=0.7666, val_macro_f1=0.6167, val_weighted_f1=0.7523, lr=0.000423, epoch_time=17.81s
+[Epoch 035] train_loss=0.2368, train_hard=0.5589, train_soft=0.1873, train_logit_mse=0.4103, train_feature_mse=0.0006, train_acc=0.8152, alpha=0.100, val_acc=0.7587, val_macro_f1=0.6361, val_weighted_f1=0.7551, lr=0.000405, epoch_time=17.74s
+[Epoch 036] train_loss=0.2346, train_hard=0.5536, train_soft=0.1856, train_logit_mse=0.4073, train_feature_mse=0.0005, train_acc=0.8172, alpha=0.100, val_acc=0.7587, val_macro_f1=0.6385, val_weighted_f1=0.7562, lr=0.000387, epoch_time=17.80s
+[Epoch 037] train_loss=0.2324, train_hard=0.5540, train_soft=0.1833, train_logit_mse=0.4023, train_feature_mse=0.0005, train_acc=0.8146, alpha=0.100, val_acc=0.7697, val_macro_f1=0.6431, val_weighted_f1=0.7642, lr=0.000370, epoch_time=17.74s
+[Epoch 038] train_loss=0.2325, train_hard=0.5548, train_soft=0.1831, train_logit_mse=0.4046, train_feature_mse=0.0005, train_acc=0.8178, alpha=0.100, val_acc=0.7611, val_macro_f1=0.6353, val_weighted_f1=0.7531, lr=0.000352, epoch_time=17.86s
+[Epoch 039] train_loss=0.2292, train_hard=0.5540, train_soft=0.1798, train_logit_mse=0.3980, train_feature_mse=0.0005, train_acc=0.8159, alpha=0.100, val_acc=0.7660, val_macro_f1=0.6361, val_weighted_f1=0.7560, lr=0.000334, epoch_time=17.90s
+[Epoch 040] train_loss=0.2297, train_hard=0.5520, train_soft=0.1806, train_logit_mse=0.3986, train_feature_mse=0.0005, train_acc=0.8172, alpha=0.100, val_acc=0.7538, val_macro_f1=0.6246, val_weighted_f1=0.7435, lr=0.000317, epoch_time=17.87s
+[Epoch 041] train_loss=0.2290, train_hard=0.5528, train_soft=0.1798, train_logit_mse=0.3950, train_feature_mse=0.0005, train_acc=0.8189, alpha=0.100, val_acc=0.7660, val_macro_f1=0.6345, val_weighted_f1=0.7566, lr=0.000300, epoch_time=17.93s
+[Epoch 042] train_loss=0.2262, train_hard=0.5493, train_soft=0.1772, train_logit_mse=0.3929, train_feature_mse=0.0005, train_acc=0.8178, alpha=0.100, val_acc=0.7557, val_macro_f1=0.6263, val_weighted_f1=0.7470, lr=0.000283, epoch_time=17.88s
+[Epoch 043] train_loss=0.2244, train_hard=0.5457, train_soft=0.1756, train_logit_mse=0.3906, train_feature_mse=0.0005, train_acc=0.8198, alpha=0.100, val_acc=0.7648, val_macro_f1=0.6307, val_weighted_f1=0.7529, lr=0.000266, epoch_time=17.79s
+Early stopping triggered.
+Loaded best KD student checkpoint for final test evaluation.
+Best validation macro-F1: 0.6456
+Best epoch: 28
+Time to best model: 502.82 seconds
+Checkpoint size (MB): 0.174
+Student size: medium
+Teacher used: checkpoints/teacher/teacher_cnn_seed123.pt
+Teacher arch: TeacherCNN
+Teacher size: large
+Checkpoint seed: 123
+Test accuracy (KD student): 0.7776
+Test macro-F1 (KD student): 0.6258
+Test weighted-F1 (KD student): 0.7720
+Test classification report:
+              precision    recall  f1-score   support
+
+           0       0.81      0.68      0.74       184
+           1       0.15      0.14      0.15        56
+           2       0.73      0.65      0.69       256
+           3       0.82      0.91      0.86       912
+           4       0.76      0.63      0.69       242
+
+    accuracy                           0.78      1650
+   macro avg       0.65      0.60      0.63      1650
+weighted avg       0.77      0.78      0.77      1650
+
+Test confusion matrix:
+[[126   4   7  43   4]
+ [  1   8   6  37   4]
+ [ 12   3 166  57  18]
+ [ 12  21  26 830  23]
+ [  5  16  21  47 153]]
+Inference latency: 1.4753 ms/sample

@@ -1,11 +1,17 @@
-# Ignore massive datasets
-data/
-data/ptbxl/
+# Ignore massive datasets (ONLY top-level data folder)
+/data/
+!/data/.gitkeep
+
+# Ignore specific dataset folder if needed
+/data/ptbxl/
+
+# Keep source code
+!src/data/
 
 # Ignore training output
-checkpoints/
-logs/
-processed/
+/checkpoints/
+/logs/
+/processed/
 
 # Python cache / compiled files
 __pycache__/

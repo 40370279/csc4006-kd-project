@@ -1,0 +1,81 @@
+Using device: cuda
+Seed: 42
+Deterministic mode: True
+Deterministic warn_only: True
+Baseline hyperparameters: class_weight_gamma=0.00, sampler_power=0.35, label_smoothing=0.000, student_size=small
+Training: batch_size=64, lr=0.0008, epochs=70, patience=15, weight_decay=0.002, grad_clip=1.0, num_workers=2, disable_augmentation=False, use_weighted_sampler=False
+Student checkpoint path: experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+Training set size: 12957
+Validation set size: 1637
+Test set size: 1650
+Number of leads: 12 classes: 5
+Classes: ['CD' 'HYP' 'MI' 'NORM' 'STTC']
+Trainable parameters: 5897
+Total parameters: 5897
+Estimated model size (MB): 0.024
+Class weights: [1. 1. 1. 1. 1.]
+Training sampler: standard shuffled loader
+[Epoch 001] train_loss=1.1681, train_acc=0.5541, val_acc=0.6145, val_macro_f1=0.2704, val_weighted_f1=0.5307, lr=0.000800, epoch_time=16.97s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 002] train_loss=0.9936, train_acc=0.6325, val_acc=0.6396, val_macro_f1=0.3421, val_weighted_f1=0.5690, lr=0.000798, epoch_time=16.17s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 003] train_loss=0.9195, train_acc=0.6772, val_acc=0.6970, val_macro_f1=0.4524, val_weighted_f1=0.6525, lr=0.000796, epoch_time=16.16s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 004] train_loss=0.8513, train_acc=0.7067, val_acc=0.7062, val_macro_f1=0.4686, val_weighted_f1=0.6629, lr=0.000794, epoch_time=16.13s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 005] train_loss=0.8100, train_acc=0.7266, val_acc=0.7214, val_macro_f1=0.5008, val_weighted_f1=0.6861, lr=0.000790, epoch_time=16.09s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 006] train_loss=0.7746, train_acc=0.7380, val_acc=0.7520, val_macro_f1=0.5471, val_weighted_f1=0.7262, lr=0.000786, epoch_time=16.22s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 007] train_loss=0.7441, train_acc=0.7493, val_acc=0.7410, val_macro_f1=0.5305, val_weighted_f1=0.7127, lr=0.000781, epoch_time=16.22s
+[Epoch 008] train_loss=0.7286, train_acc=0.7587, val_acc=0.7361, val_macro_f1=0.5241, val_weighted_f1=0.7030, lr=0.000775, epoch_time=16.20s
+[Epoch 009] train_loss=0.7151, train_acc=0.7638, val_acc=0.7251, val_macro_f1=0.5003, val_weighted_f1=0.6849, lr=0.000768, epoch_time=16.22s
+[Epoch 010] train_loss=0.7034, train_acc=0.7645, val_acc=0.7428, val_macro_f1=0.5338, val_weighted_f1=0.7122, lr=0.000761, epoch_time=16.15s
+[Epoch 011] train_loss=0.6977, train_acc=0.7689, val_acc=0.7636, val_macro_f1=0.5670, val_weighted_f1=0.7406, lr=0.000753, epoch_time=16.18s
+  -> New best baseline student saved to experiments/4__student_capacity_sweep/checkpoints/studentbaseline_small_seed42.pt
+[Epoch 012] train_loss=0.6863, train_acc=0.7736, val_acc=0.7453, val_macro_f1=0.5380, val_weighted_f1=0.7169, lr=0.000744, epoch_time=16.18s
+[Epoch 013] train_loss=0.6879, train_acc=0.7733, val_acc=0.7489, val_macro_f1=0.5380, val_weighted_f1=0.7179, lr=0.000735, epoch_time=16.05s
+[Epoch 014] train_loss=0.6862, train_acc=0.7706, val_acc=0.7361, val_macro_f1=0.5197, val_weighted_f1=0.7021, lr=0.000725, epoch_time=16.22s
+[Epoch 015] train_loss=0.6701, train_acc=0.7799, val_acc=0.7495, val_macro_f1=0.5397, val_weighted_f1=0.7190, lr=0.000714, epoch_time=16.08s
+[Epoch 016] train_loss=0.6667, train_acc=0.7779, val_acc=0.7581, val_macro_f1=0.5537, val_weighted_f1=0.7331, lr=0.000702, epoch_time=16.15s
+[Epoch 017] train_loss=0.6595, train_acc=0.7816, val_acc=0.7379, val_macro_f1=0.5227, val_weighted_f1=0.7033, lr=0.000691, epoch_time=16.12s
+[Epoch 018] train_loss=0.6581, train_acc=0.7811, val_acc=0.7520, val_macro_f1=0.5446, val_weighted_f1=0.7223, lr=0.000678, epoch_time=16.10s
+[Epoch 019] train_loss=0.6554, train_acc=0.7844, val_acc=0.7288, val_macro_f1=0.5123, val_weighted_f1=0.6919, lr=0.000665, epoch_time=16.25s
+[Epoch 020] train_loss=0.6554, train_acc=0.7793, val_acc=0.7495, val_macro_f1=0.5366, val_weighted_f1=0.7199, lr=0.000651, epoch_time=16.10s
+[Epoch 021] train_loss=0.6475, train_acc=0.7849, val_acc=0.7343, val_macro_f1=0.5197, val_weighted_f1=0.6993, lr=0.000637, epoch_time=16.17s
+[Epoch 022] train_loss=0.6444, train_acc=0.7879, val_acc=0.7526, val_macro_f1=0.5435, val_weighted_f1=0.7234, lr=0.000623, epoch_time=16.14s
+[Epoch 023] train_loss=0.6330, train_acc=0.7905, val_acc=0.7422, val_macro_f1=0.5327, val_weighted_f1=0.7131, lr=0.000608, epoch_time=16.15s
+[Epoch 024] train_loss=0.6405, train_acc=0.7891, val_acc=0.7526, val_macro_f1=0.5505, val_weighted_f1=0.7273, lr=0.000592, epoch_time=16.27s
+[Epoch 025] train_loss=0.6389, train_acc=0.7911, val_acc=0.7514, val_macro_f1=0.5485, val_weighted_f1=0.7246, lr=0.000576, epoch_time=16.21s
+[Epoch 026] train_loss=0.6360, train_acc=0.7912, val_acc=0.7489, val_macro_f1=0.5379, val_weighted_f1=0.7179, lr=0.000560, epoch_time=16.20s
+Early stopping triggered.
+Loaded best baseline student checkpoint for final test evaluation.
+Best validation macro-F1: 0.5670
+Best epoch: 11
+Time to best model: 178.97 seconds
+Checkpoint size (MB): 0.051
+Student size: small
+Checkpoint seed: 42
+Test accuracy (baseline student): 0.7588
+Test macro-F1 (baseline student): 0.5593
+Test weighted-F1 (baseline student): 0.7357
+Test classification report:
+              precision    recall  f1-score   support
+
+           0       0.79      0.60      0.68       184
+           1       0.00      0.00      0.00        56
+           2       0.69      0.48      0.57       256
+           3       0.78      0.93      0.85       912
+           4       0.69      0.69      0.69       242
+
+    accuracy                           0.76      1650
+   macro avg       0.59      0.54      0.56      1650
+weighted avg       0.73      0.76      0.74      1650
+
+Test confusion matrix:
+[[111   0  11  56   6]
+ [  1   0   6  41   8]
+ [ 13   0 124  86  33]
+ [ 12   0  24 849  27]
+ [  4   0  14  56 168]]
+Inference latency: 1.4585 ms/sample
