@@ -250,7 +250,7 @@ def save_checkpoint(
     model: nn.Module,
     classes,
     n_leads: int,
-    best_val_macro_f1: float,
+    best_val_macro_auc: float,
     epoch: int,
     args,
 ):
@@ -260,7 +260,7 @@ def save_checkpoint(
         "n_leads": n_leads,
         "teacher_arch": "TeacherCNN",
         "teacher_size": args.teacher_size,
-        "best_val_macro_f1": best_val_macro_f1,
+        "best_val_macro_auc": best_val_macro_auc,
         "epoch": epoch,
         "seed": args.seed,
         "train_args": vars(args),
@@ -411,7 +411,7 @@ def main():
     if ckpt_dir:
         os.makedirs(ckpt_dir, exist_ok=True)
 
-    best_val_macro_f1 = -1.0
+    best_val_macro_auc = -1.0
     best_epoch = 0
     best_time_sec = 0.0
     epochs_without_improvement = 0
@@ -438,6 +438,7 @@ def main():
             val_metrics = evaluate_classification(model, val_loader, device)
 
         val_acc = val_metrics["acc"]
+        val_macro_auc = val_metrics["macro_auc"]
         val_macro_f1 = val_metrics["macro_f1"]
         val_weighted_f1 = val_metrics["weighted_f1"]
 
@@ -446,13 +447,14 @@ def main():
 
         print(
             "[Epoch {:03d}] lr={:.6f}, train_loss={:.4f}, train_acc={:.4f}, "
-            "val_acc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
-            "epoch_time={:.2f}s".format(
+            "val_acc={:.4f}, val_macro_auc={:.4f}, val_macro_f1={:.4f}, "
+            "val_weighted_f1={:.4f}, epoch_time={:.2f}s".format(
                 epoch,
                 optimizer.param_groups[0]["lr"],
                 train_loss,
                 train_acc,
                 val_acc,
+                val_macro_auc,
                 val_macro_f1,
                 val_weighted_f1,
                 epoch_time,
@@ -460,8 +462,8 @@ def main():
             flush=True,
         )
 
-        if val_macro_f1 > best_val_macro_f1:
-            best_val_macro_f1 = val_macro_f1
+        if not np.isnan(val_macro_auc) and val_macro_auc > best_val_macro_auc:
+            best_val_macro_auc = val_macro_auc
             best_epoch = epoch
             best_time_sec = time.time() - training_start_time
             epochs_without_improvement = 0
@@ -473,7 +475,7 @@ def main():
                         model=model,
                         classes=classes,
                         n_leads=n_leads,
-                        best_val_macro_f1=best_val_macro_f1,
+                        best_val_macro_auc=best_val_macro_auc,
                         epoch=epoch,
                         args=args,
                     )
@@ -483,7 +485,7 @@ def main():
                     model=model,
                     classes=classes,
                     n_leads=n_leads,
-                    best_val_macro_f1=best_val_macro_f1,
+                    best_val_macro_auc=best_val_macro_auc,
                     epoch=epoch,
                     args=args,
                 )
@@ -502,7 +504,7 @@ def main():
     model.load_state_dict(ckpt["model_state_dict"])
 
     print("\nLoaded best checkpoint for final evaluation.", flush=True)
-    print("Best validation macro-F1: {:.4f}".format(best_val_macro_f1), flush=True)
+    print("Best validation macro-AUC: {:.4f}".format(best_val_macro_auc), flush=True)
     print("Best epoch:", best_epoch, flush=True)
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)
     print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(args.teacher_ckpt)), flush=True)
@@ -513,6 +515,7 @@ def main():
     test_metrics = evaluate_classification(model, test_loader, device)
 
     print("Test Accuracy: {:.4f}".format(test_metrics["acc"]), flush=True)
+    print("Test Macro-AUC: {:.4f}".format(test_metrics["macro_auc"]), flush=True)
     print("Test Macro-F1: {:.4f}".format(test_metrics["macro_f1"]), flush=True)
     print("Test Weighted-F1: {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
 

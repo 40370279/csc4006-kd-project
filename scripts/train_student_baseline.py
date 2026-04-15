@@ -346,6 +346,7 @@ def main():
 
         val_metrics = evaluate_classification(student, val_loader, device)
         val_acc = val_metrics["acc"]
+        val_macro_auc = val_metrics["macro_auc"]
         val_macro_f1 = val_metrics["macro_f1"]
         val_weighted_f1 = val_metrics["weighted_f1"]
 
@@ -355,12 +356,13 @@ def main():
 
         print(
             "[Epoch {:03d}] train_loss={:.4f}, train_acc={:.4f}, "
-            "val_acc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
+            "val_acc={:.4f}, val_macro_auc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
             "lr={:.6f}, epoch_time={:.2f}s".format(
                 epoch,
                 train_loss,
                 train_acc,
                 val_acc,
+                val_macro_auc,
                 val_macro_f1,
                 val_weighted_f1,
                 current_lr,
@@ -369,8 +371,8 @@ def main():
             flush=True,
         )
 
-        if val_macro_f1 > best_val_metric:
-            best_val_metric = val_macro_f1
+        if not np.isnan(val_macro_auc) and val_macro_auc > best_val_metric:
+            best_val_metric = val_macro_auc
             best_epoch = epoch
             best_time_sec = time.time() - training_start_time
             epochs_without_improvement = 0
@@ -392,7 +394,7 @@ def main():
                     "label_smoothing": args.label_smoothing,
                     "disable_augmentation": args.disable_augmentation,
                     "use_weighted_sampler": args.use_weighted_sampler,
-                    "best_val_macro_f1": best_val_metric,
+                    "best_val_macro_auc": best_val_metric,
                     "best_epoch": best_epoch,
                 },
                 args.student_ckpt,
@@ -413,7 +415,7 @@ def main():
     student.load_state_dict(ckpt["model_state_dict"])
 
     print("Loaded best baseline student checkpoint for final test evaluation.", flush=True)
-    print("Best validation macro-F1: {:.4f}".format(best_val_metric), flush=True)
+    print("Best validation macro-AUC: {:.4f}".format(best_val_metric), flush=True)
     print("Best epoch:", best_epoch, flush=True)
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)
     print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(args.student_ckpt)), flush=True)
@@ -422,6 +424,7 @@ def main():
 
     test_metrics = evaluate_classification(student, test_loader, device)
     print("Test accuracy (baseline student): {:.4f}".format(test_metrics["acc"]), flush=True)
+    print("Test macro-AUC (baseline student): {:.4f}".format(test_metrics["macro_auc"]), flush=True)
     print("Test macro-F1 (baseline student): {:.4f}".format(test_metrics["macro_f1"]), flush=True)
     print("Test weighted-F1 (baseline student): {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
 
@@ -443,6 +446,7 @@ def main():
 
     return {
         "acc": test_metrics["acc"],
+        "macro_auc": test_metrics["macro_auc"],
         "macro_f1": test_metrics["macro_f1"],
         "weighted_f1": test_metrics["weighted_f1"],
     }

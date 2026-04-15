@@ -1,14 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+PROJECT_DIR="/users/40370279/csc4006/code"
+EXP_DIR="$PROJECT_DIR/experiments/3__alpha_sweep"
 
-echo "===== RUNNING EXPERIMENT 3: ALPHA SWEEP ====="
-echo "Directory : $SCRIPT_DIR"
-echo "Host      : $(hostname)"
-echo "Start     : $(date)"
-echo
+cd "$PROJECT_DIR"
+
+echo "===== SUBMITTING EXPERIMENT 3: ALPHA SWEEP ====="
+
+mkdir -p "$EXP_DIR/checkpoints" "$EXP_DIR/logs" "$EXP_DIR/logs/tmp"
 
 FILES=(
   "run_A01.slurm"
@@ -18,29 +18,16 @@ FILES=(
   "run_A09.slurm"
 )
 
-JOB_IDS=()
-
 for FILE in "${FILES[@]}"
 do
-  if [[ ! -f "$FILE" ]]; then
-    echo "ERROR: Missing file $FILE"
+  SBATCH_OUTPUT=$(sbatch "$EXP_DIR/$FILE")
+  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')
+
+  if [[ -z "${JOB_ID:-}" ]]; then
+    echo "Failed to parse job ID for $FILE"
+    echo "sbatch output: $SBATCH_OUTPUT"
     exit 1
   fi
 
-  echo "Submitting $FILE ..."
-  SBATCH_OUTPUT=$(sbatch "$FILE")
-  echo "$SBATCH_OUTPUT"
-
-  JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $NF}')
-  JOB_IDS+=("$JOB_ID")
+  echo "Submitted $FILE -> Job $JOB_ID"
 done
-
-echo
-echo "===== SUBMISSION SUMMARY ====="
-for i in "${!FILES[@]}"
-do
-  printf "%-15s -> %s\n" "${FILES[$i]}" "${JOB_IDS[$i]}"
-done
-
-echo
-echo "Submitted at: $(date)"

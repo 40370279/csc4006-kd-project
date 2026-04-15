@@ -1,100 +1,197 @@
 # Experiment 4: Student Capacity Sweep
 
-This experiment studies the effect of student model capacity in knowledge distillation.
+## Overview
 
-## Goal
+This experiment investigates how the **capacity (size) of the student model** affects performance in both standard training and knowledge distillation.
 
-Evaluate how student model size impacts performance under a fixed KD setup.
+Two types of models are evaluated:
+- Baseline students (no distillation)
+- KD students (with distillation)
 
-Specifically, this experiment investigates:
+The goal is to understand how model size influences:
+- performance
+- efficiency
+- the effectiveness of knowledge distillation
 
-- how performance scales with model capacity
-- whether smaller models benefit more from KD
-- whether larger models saturate performance
+---
 
-## Models Tested
+## Research question
 
-- small
-- medium
-- large
+How does student model capacity affect classification performance, and does knowledge distillation provide consistent benefits across different model sizes?
 
-These correspond to different student architectures defined in the model implementation.
+---
 
-## Setup
+## Key idea
 
-All runs use:
+Model capacity determines how much information a model can learn.
 
-- teacher checkpoints from the root checkpoints/ directory
-- the same seeds: 42, 123, 999
-- identical training hyperparameters
-- identical data processing and augmentations
+- Small models:
+  - Fast and efficient  
+  - Limited representational power  
 
-KD configuration is FIXED:
+- Large models:
+  - More expressive  
+  - Better performance but higher cost  
 
-- alpha = 0.5
-- temperature = 4.0
+This experiment tests whether knowledge distillation helps:
+- small models more than large ones  
+- or all model sizes equally  
 
-Only the student model size is changed.
+---
 
-## Structure
+## Experimental setup
 
-experiments/4__student_capacity_sweep/
-├── checkpoints/
-├── logs/
-│   └── tmp/
-├── student/
-│   ├── run_small.slurm
-│   ├── run_medium.slurm
-│   └── run_large.slurm
-├── README.md
-└── run_all.sh
+### Models evaluated
 
-## Teacher Checkpoints
+Student sizes:
+- small  
+- medium  
+- large  
 
-All runs use shared teacher checkpoints from:
+For each size, two models are trained:
 
-checkpoints/teacher_cnn_seed42.pt
-checkpoints/teacher_cnn_seed123.pt
-checkpoints/teacher_cnn_seed999.pt
+1. **Baseline student**
+   - Standard supervised training  
 
-These are NOT experiment-specific.
+2. **KD student**
+   - Uses teacher guidance  
 
-## Outputs
+---
 
-This experiment writes outputs into:
+### Fixed components
 
-- checkpoints: experiments/4__student_capacity_sweep/checkpoints/
-- logs: experiments/4__student_capacity_sweep/logs/
-- temporary logs: experiments/4__student_capacity_sweep/logs/tmp/
+- Teacher: TeacherCNN (from Experiment 1)  
+- Temperature: T = 1  
+- Alpha: 0.10 → 0.10  
+- Training settings: identical across all runs  
 
-Student checkpoints are saved as:
+---
 
-- student_small_seed{SEED}.pt
-- student_medium_seed{SEED}.pt
-- student_large_seed{SEED}.pt
+## Seeds
 
-Each run logs per-seed results and a final aggregated summary.
+Each configuration is evaluated with:
+- 42  
+- 123  
+- 999  
 
-## How to Run
+Results are reported as mean ± standard deviation.
 
-Run everything:
+---
 
-./experiments/4__student_capacity_sweep/run_all.sh
+## Files
 
-Or submit manually:
+Baseline runs:
+- `studentbaseline/run_small.slurm`
+- `studentbaseline/run_medium.slurm`
+- `studentbaseline/run_large.slurm`
 
-sbatch experiments/4__student_capacity_sweep/student/run_small.slurm
-sbatch experiments/4__student_capacity_sweep/student/run_medium.slurm
-sbatch experiments/4__student_capacity_sweep/student/run_large.slurm
+KD runs:
+- `studentkd/run_small.slurm`
+- `studentkd/run_medium.slurm`
+- `studentkd/run_large.slurm`
 
-## Expected Insight
+Main script:
+- `run_all.sh`
 
-This experiment reveals how KD interacts with model capacity.
+Outputs:
+- `checkpoints/`
+- `logs/`
+- `logs/tmp/`
 
-Typical findings:
+---
 
-- small models benefit most from KD (largest relative improvement)
-- medium models provide a strong balance of efficiency and performance
-- large models achieve higher absolute performance but smaller KD gains
+## Metrics
 
-You may observe diminishing returns as model size increases.
+For each model:
+
+- Accuracy  
+- Macro-AUC  
+- Macro-F1  
+- Weighted-F1  
+
+Additional measurements:
+- model parameter count  
+- checkpoint size  
+- inference latency  
+
+Each script:
+- runs all seeds  
+- parses results automatically  
+- prints mean ± std summary  
+
+---
+
+## How to run
+
+Run all capacity experiments:
+
+sbatch experiments/4__student_capacity_sweep/run_all.sh  
+
+Run individual jobs:
+
+Baseline:
+sbatch experiments/4__student_capacity_sweep/studentbaseline/run_small.slurm  
+sbatch experiments/4__student_capacity_sweep/studentbaseline/run_medium.slurm  
+sbatch experiments/4__student_capacity_sweep/studentbaseline/run_large.slurm  
+
+KD:
+sbatch experiments/4__student_capacity_sweep/studentkd/run_small.slurm  
+sbatch experiments/4__student_capacity_sweep/studentkd/run_medium.slurm  
+sbatch experiments/4__student_capacity_sweep/studentkd/run_large.slurm  
+
+---
+
+## Checkpoints
+
+Baseline:
+- student_baseline_small_seed42.pt  
+- student_baseline_medium_seed42.pt  
+- student_baseline_large_seed42.pt  
+
+KD:
+- student_kd_small_seed42.pt  
+- student_kd_medium_seed42.pt  
+- student_kd_large_seed42.pt  
+
+(and similarly for seeds 123 and 999)
+
+---
+
+## Expected outcome
+
+- Larger models should achieve higher performance  
+- Smaller models should be more efficient  
+- Knowledge distillation is expected to:
+  - significantly improve small models  
+  - moderately improve medium models  
+  - have smaller gains for large models  
+
+---
+
+## Interpretation
+
+This experiment evaluates the trade-off between **model size, performance, and efficiency**.
+
+Key insights:
+- Model capacity directly impacts classification performance  
+- Knowledge distillation is most beneficial for weaker (smaller) models  
+- Larger students may already approximate teacher behaviour  
+
+This helps identify the **optimal student size for deployment**.
+
+---
+
+## Notes
+
+- All hyperparameters are fixed except model size  
+- Teacher checkpoints must exist before KD runs  
+- If metric parsing fails, check `logs/tmp/`  
+
+---
+
+## Relation to other experiments
+
+- Builds on Experiment 1 (KD vs baseline)  
+- Uses best settings from Experiments 2 and 3  
+- Explores scaling behaviour of student models  
+- Helps identify best performance-efficiency trade-off  

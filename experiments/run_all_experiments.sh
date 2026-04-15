@@ -16,9 +16,7 @@ EXPERIMENTS=(
   "4__student_capacity_sweep"
   "5__teacher_model_comparison"
   "6__distillation_component"
-  "7__augmentation_ablation"
-  "7__augmentation_ablation"
-  "8__class_aware_adaptive_alpha"
+  "7__class_aware_adaptive_alpha"
 )
 
 for EXP in "${EXPERIMENTS[@]}"

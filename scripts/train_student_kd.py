@@ -406,7 +406,7 @@ def main():
     teacher_ckpt = torch.load(args.teacher_ckpt, map_location=device, weights_only=False)
     teacher_arch = teacher_ckpt.get("teacher_arch", "TeacherCNN")
     teacher_size = teacher_ckpt.get("teacher_size", "large")
-    teacher_best_val = teacher_ckpt.get("best_val_macro_f1", None)
+    teacher_best_val = teacher_ckpt.get("best_val_macro_auc", None)
 
     if teacher_arch != "TeacherCNN":
         raise ValueError(
@@ -543,6 +543,7 @@ def main():
 
         val_metrics = evaluate_classification(student, val_loader, device)
         val_acc = val_metrics["acc"]
+        val_macro_auc = val_metrics["macro_auc"]
         val_macro_f1 = val_metrics["macro_f1"]
         val_weighted_f1 = val_metrics["weighted_f1"]
 
@@ -553,7 +554,7 @@ def main():
         print(
             "[Epoch {:03d}] train_loss={:.4f}, train_hard={:.4f}, train_soft={:.4f}, "
             "train_logit_mse={:.4f}, train_feature_mse={:.4f}, train_acc={:.4f}, alpha={:.3f}, "
-            "val_acc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
+            "val_acc={:.4f}, val_macro_auc={:.4f}, val_macro_f1={:.4f}, val_weighted_f1={:.4f}, "
             "lr={:.6f}, epoch_time={:.2f}s".format(
                 epoch,
                 train_loss,
@@ -564,6 +565,7 @@ def main():
                 train_acc,
                 alpha,
                 val_acc,
+                val_macro_auc,
                 val_macro_f1,
                 val_weighted_f1,
                 current_lr,
@@ -572,8 +574,8 @@ def main():
             flush=True,
         )
 
-        if val_macro_f1 > best_val_metric:
-            best_val_metric = val_macro_f1
+        if not np.isnan(val_macro_auc) and val_macro_auc > best_val_metric:
+            best_val_metric = val_macro_auc
             best_epoch = epoch
             best_time_sec = time.time() - training_start_time
             epochs_without_improvement = 0
@@ -599,13 +601,13 @@ def main():
                     "teacher_checkpoint": args.teacher_ckpt,
                     "teacher_arch": teacher_arch,
                     "teacher_size": teacher_size,
-                    "teacher_best_val_macro_f1": teacher_best_val,
+                    "teacher_best_val_macro_auc": teacher_best_val,
                     "alpha_start": args.alpha_start,
                     "alpha_end": args.alpha_end,
                     "temperature": args.temperature,
                     "logit_mse_weight": args.logit_mse_weight,
                     "feature_mse_weight": args.feature_mse_weight,
-                    "best_val_macro_f1": best_val_metric,
+                    "best_val_macro_auc": best_val_metric,
                     "best_epoch": best_epoch,
                 },
                 args.student_ckpt,
@@ -624,7 +626,7 @@ def main():
     student.load_state_dict(ckpt["model_state_dict"])
 
     print("Loaded best KD student checkpoint for final test evaluation.", flush=True)
-    print("Best validation macro-F1: {:.4f}".format(best_val_metric), flush=True)
+    print("Best validation macro-AUC: {:.4f}".format(best_val_metric), flush=True)
     print("Best epoch:", best_epoch, flush=True)
     print("Time to best model: {:.2f} seconds".format(best_time_sec), flush=True)
     print("Checkpoint size (MB): {:.3f}".format(checkpoint_size_mb(args.student_ckpt)), flush=True)
@@ -636,6 +638,7 @@ def main():
 
     test_metrics = evaluate_classification(student, test_loader, device)
     print("Test accuracy (KD student): {:.4f}".format(test_metrics["acc"]), flush=True)
+    print("Test macro-AUC (KD student): {:.4f}".format(test_metrics["macro_auc"]), flush=True)
     print("Test macro-F1 (KD student): {:.4f}".format(test_metrics["macro_f1"]), flush=True)
     print("Test weighted-F1 (KD student): {:.4f}".format(test_metrics["weighted_f1"]), flush=True)
 
@@ -657,6 +660,7 @@ def main():
 
     return {
         "acc": test_metrics["acc"],
+        "macro_auc": test_metrics["macro_auc"],
         "macro_f1": test_metrics["macro_f1"],
         "weighted_f1": test_metrics["weighted_f1"],
     }

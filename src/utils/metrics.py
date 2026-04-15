@@ -6,6 +6,7 @@ from sklearn.metrics import (
     f1_score,
     confusion_matrix,
     classification_report,
+    roc_auc_score,
 )
 
 
@@ -20,11 +21,17 @@ def evaluate_classification(
     Returns
     -------
     dict containing:
-        - acc: overall accuracy
-        - macro_f1: macro-averaged F1-score
-        - weighted_f1: weighted-averaged F1-score
-        - confusion_matrix: sklearn confusion matrix
-        - report: sklearn text classification report
+        - acc
+        - macro_f1
+        - weighted_f1
+        - macro_auc
+        - macro_auc_ovr
+        - confusion_matrix
+        - report
+        - logits
+        - probs
+        - targets
+        - preds
     """
     model.eval()
     all_logits = []
@@ -32,8 +39,8 @@ def evaluate_classification(
 
     with torch.no_grad():
         for X, y in loader:
-            X = X.to(device)
-            y = y.to(device)
+            X = X.to(device, non_blocking=True)
+            y = y.to(device, non_blocking=True)
 
             logits = model(X)
 
@@ -45,14 +52,26 @@ def evaluate_classification(
 
     logits = torch.cat(all_logits, dim=0)
     targets = torch.cat(all_targets, dim=0)
+    probs = torch.softmax(logits, dim=1)
     preds = logits.argmax(dim=1)
 
     targets_np = targets.numpy()
     preds_np = preds.numpy()
+    probs_np = probs.numpy()
 
     acc = (preds == targets).float().mean().item()
     macro_f1 = f1_score(targets_np, preds_np, average="macro", zero_division=0)
     weighted_f1 = f1_score(targets_np, preds_np, average="weighted", zero_division=0)
+
+    try:
+        macro_auc = roc_auc_score(
+            targets_np,
+            probs_np,
+            multi_class="ovr",
+            average="macro",
+        )
+    except ValueError:
+        macro_auc = float("nan")
 
     cm = confusion_matrix(targets_np, preds_np)
     report = classification_report(
@@ -66,6 +85,12 @@ def evaluate_classification(
         "acc": acc,
         "macro_f1": macro_f1,
         "weighted_f1": weighted_f1,
+        "macro_auc": macro_auc,
+        "macro_auc_ovr": macro_auc,  # backward-compatible alias
         "confusion_matrix": cm,
         "report": report,
+        "logits": logits.numpy(),
+        "probs": probs_np,
+        "targets": targets_np,
+        "preds": preds_np,
     }

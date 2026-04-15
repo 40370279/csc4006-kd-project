@@ -1,96 +1,161 @@
-# Experiment 2: Temperature Sweep
+# Experiment 2: Temperature Sweep for Knowledge Distillation
 
-This experiment studies the effect of temperature in knowledge distillation.
+## Overview
 
-## Goal
+This experiment investigates the effect of the **temperature parameter (T)** in knowledge distillation on the performance of a small student model.
 
-Evaluate how different temperature values affect student model performance while keeping the rest of the setup fixed.
+The teacher and student architectures remain fixed, and the only parameter that is varied is the **temperature used in the soft target distribution**.
 
-## Temperatures Tested
+---
 
-- 1
-- 2
-- 4
-- 8
-- 16
-- 32
+## Research question
 
-## Setup
+How does the distillation temperature influence the effectiveness of knowledge transfer from the teacher to the student?
 
-All runs use:
+---
 
-- the same teacher checkpoints from the root `checkpoints/` directory
-- the same seeds: 42, 123, 999
-- the same student size: small
-- the same optimisation and training hyperparameters
+## Key idea
 
-Only the temperature value is changed.
+In knowledge distillation, the temperature controls how “soft” the teacher’s output probabilities are.
 
-## Structure
+- Low temperature (T = 1):
+  - Produces sharp probability distributions  
+  - Similar to standard training  
 
-experiments/2__temperature_sweep/
-├── checkpoints/
-├── logs/
-│   └── tmp/
-├── README.md
-├── run_all.sh
-├── run_T1.slurm
-├── run_T2.slurm
-├── run_T4.slurm
-├── run_T8.slurm
-├── run_T16.slurm
-└── run_T32.slurm
+- High temperature (T > 1):
+  - Produces softer distributions  
+  - Reveals relationships between classes (“dark knowledge”)  
 
-## Teacher Checkpoints
+This experiment tests whether softer targets improve student learning.
 
-These runs read teacher checkpoints from:
+---
 
-checkpoints/teacher_cnn_seed42.pt  
-checkpoints/teacher_cnn_seed123.pt  
-checkpoints/teacher_cnn_seed999.pt
+## Experimental setup
 
-These are shared base teacher checkpoints, not experiment-local teacher checkpoints.
+### Fixed components
+- Teacher: TeacherCNN (pretrained from Experiment 1)
+- Student: StudentCNN (small)
+- Alpha: 0.10 → 0.10 (fixed)
+- Training settings: identical across all runs
 
-## Outputs
+### Variable
+- Temperature (T)
 
-This experiment writes its own outputs into:
+Values tested:
+- T = 1  
+- T = 2  
+- T = 4  
+- T = 8  
+- T = 16  
+- T = 32  
 
-- checkpoints: experiments/2__temperature_sweep/checkpoints/
-- logs: experiments/2__temperature_sweep/logs/
-- temporary per-seed logs: experiments/2__temperature_sweep/logs/tmp/
+---
 
-Student checkpoints are saved as:
+## Seeds
 
-- student_T1_seed{SEED}.pt
-- student_T2_seed{SEED}.pt
-- student_T4_seed{SEED}.pt
-- student_T8_seed{SEED}.pt
-- student_T16_seed{SEED}.pt
-- student_T32_seed{SEED}.pt
+Each temperature is evaluated with:
+- 42  
+- 123  
+- 999  
 
-## How to Run
+Final results are reported as mean ± standard deviation.
 
-Run everything:
+---
 
-./experiments/2__temperature_sweep/run_all.sh
+## Files
 
-Or submit manually:
+- `run_T1.slurm`
+- `run_T2.slurm`
+- `run_T4.slurm`
+- `run_T8.slurm`
+- `run_T16.slurm`
+- `run_T32.slurm`
+- `run_all.sh`
 
-sbatch experiments/2__temperature_sweep/run_T1.slurm
-sbatch experiments/2__temperature_sweep/run_T2.slurm
-sbatch experiments/2__temperature_sweep/run_T4.slurm
-sbatch experiments/2__temperature_sweep/run_T8.slurm
-sbatch experiments/2__temperature_sweep/run_T16.slurm
-sbatch experiments/2__temperature_sweep/run_T32.slurm
+Outputs:
+- `checkpoints/`
+- `logs/`
+- `logs/tmp/`
 
-## Expected Insight
+---
 
-This experiment should show how softer versus sharper teacher distributions affect KD performance.
+## Metrics
 
-Typical interpretation:
+For each temperature:
 
-- lower temperature gives sharper targets
-- higher temperature gives softer targets
-- a middle temperature often works best
+- Accuracy  
+- Macro-AUC  
+- Macro-F1  
+- Weighted-F1  
 
-This experiment identifies which temperature is best for this setup.
+Each script:
+- runs all seeds  
+- parses results automatically  
+- prints mean ± std summary  
+
+---
+
+## How to run
+
+Run all temperature experiments:
+
+sbatch experiments/2__temperature_sweep/run_all.sh  
+
+Run a single temperature:
+
+sbatch experiments/2__temperature_sweep/run_T1.slurm  
+sbatch experiments/2__temperature_sweep/run_T2.slurm  
+sbatch experiments/2__temperature_sweep/run_T4.slurm  
+sbatch experiments/2__temperature_sweep/run_T8.slurm  
+sbatch experiments/2__temperature_sweep/run_T16.slurm  
+sbatch experiments/2__temperature_sweep/run_T32.slurm  
+
+---
+
+## Checkpoints
+
+Each run saves student checkpoints:
+
+- student_T1_seed42.pt  
+- student_T2_seed42.pt  
+- student_T4_seed42.pt  
+- ...  
+
+(and similarly for seeds 123 and 999)
+
+---
+
+## Expected outcome
+
+- T = 1 behaves like standard KD (limited soft information)  
+- Moderate temperatures (T = 2–8) are expected to perform best  
+- Very high temperatures (T = 16–32) may degrade performance due to overly smooth targets  
+
+---
+
+## Interpretation
+
+This experiment helps identify the **optimal temperature for distillation**.
+
+Key insights:
+- Temperature controls the quality of knowledge transfer  
+- Moderate softening improves generalisation  
+- Too much smoothing reduces useful signal  
+
+The best-performing temperature is used in later experiments.
+
+---
+
+## Notes
+
+- Only temperature is changed — all other hyperparameters remain constant  
+- Teacher checkpoints must exist before running this experiment  
+- If metric parsing fails, check `logs/tmp/`  
+
+---
+
+## Relation to other experiments
+
+- Builds on Experiment 1 (KD vs baseline)  
+- Helps tune KD hyperparameters  
+- Informs later experiments using the best temperature  

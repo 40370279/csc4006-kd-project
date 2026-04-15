@@ -8,7 +8,7 @@ cd "$PROJECT_DIR"
 
 echo "===== SUBMITTING EXPERIMENT 6: DISTILLATION TYPE ====="
 
-for SCRIPT in run_logits_only.slurm run_features_only.slurm run_both.slurm
+for SCRIPT in baseline_ce_only.slurm soft_targets_only.slurm feature_only.slurm soft_targets_plus_features.slurm
 do
     SBATCH_OUTPUT=$(sbatch "$EXP_DIR/$SCRIPT")
     JOB_ID=$(echo "$SBATCH_OUTPUT" | awk '{print $4}')
