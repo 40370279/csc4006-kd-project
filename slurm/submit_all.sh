@@ -3,13 +3,14 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+LOG_DIR="$PROJECT_ROOT/logs"
 
 cd "$PROJECT_ROOT"
 
-mkdir -p logs
+mkdir -p "$LOG_DIR"
 
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-LOG_FILE="logs/submit_all_${TIMESTAMP}.log"
+LOG_FILE="$LOG_DIR/submit_all_${TIMESTAMP}.log"
 
 exec > >(tee -a "$LOG_FILE") 2>&1
 
@@ -44,7 +45,7 @@ echo "  baseline: $baseline_job"
 echo
 echo "Submitting KD job with dependency on teacher..."
 dep="afterok:${teacher_job}"
-kd_job=$(sbatch --dependency=$dep slurm/train_student_kd.slurm | awk '{print $4}')
+kd_job=$(sbatch --dependency="$dep" slurm/train_student_kd.slurm | awk '{print $4}')
 
 if [[ -z "${kd_job:-}" ]]; then
   echo "Failed to submit KD job"
@@ -56,7 +57,6 @@ echo "  kd: $kd_job"
 
 echo
 echo "Dependency used for KD job: $dep"
-
 echo
 echo "Submission log saved to: $LOG_FILE"
 echo "Finished at: $(date)"

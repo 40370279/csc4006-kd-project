@@ -64,7 +64,7 @@ do
     --label_smoothing 0.03 \
     --num_workers 2 \
     --seed "$SEED" \
-    --teacher_size xlarge \
+    --teacher_size large \
     --teacher_ckpt "$TEACHER_CKPT" \
     2>&1 | tee "$SEED_LOG"
 
