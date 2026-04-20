@@ -9,7 +9,6 @@
 # =========================
 experiments/**/checkpoints/
 experiments/**/logs/
-
 /checkpoints/
 /logs/
 
@@ -24,3 +23,9 @@ __pycache__/
 # =========================
 .DS_Store
 **/.DS_Store
+
+# =========================
+# FILE TYPES
+# =========================
+*.json
+*.png
