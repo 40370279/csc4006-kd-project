@@ -1,3 +1,5 @@
+![CI](https://github.com/lewismcgrogan/CSC4006-KD-Project/actions/workflows/ci.yml/badge.svg)
+
 # ECG Knowledge Distillation for Efficient PTB-XL Classification
 
 This repository contains a reproducible research software framework for investigating **knowledge distillation (KD)** for efficient ECG classification on the **PTB-XL** dataset.
@@ -8,17 +10,19 @@ The project studies whether a compact student model can approach the performance
 
 The software is designed to support the following goals:
 
-- train a high-capacity **teacher** ECG classifier
-- train a lightweight **baseline student** classifier
-- train a lightweight **knowledge-distilled student**
-- compare teacher, baseline, and KD models under controlled settings
-- evaluate both **predictive performance** and **deployment-oriented efficiency**
-- support reproducible ablation studies and robustness experiments
+- Train a high-capacity **teacher** ECG classifier
+- Train a lightweight **baseline student** classifier
+- Train a lightweight **knowledge-distilled student**
+- Compare teacher, baseline, and KD models under controlled settings
+- Evaluate both **predictive performance** and **deployment-oriented efficiency**
+- Support reproducible ablation studies and robustness experiments
+- Provide a maintainable research software artefact that can be installed, executed, tested, and extended by another researcher or research software engineer
 
 ## Repository structure
 
 ```text
 code/
+├── .github/workflows/       # GitHub Actions CI workflow
 ├── src/
 │   ├── data/                # Dataset wrapper and ECG augmentation
 │   ├── models/              # Teacher and student model implementations
@@ -26,6 +30,7 @@ code/
 ├── scripts/                 # Main Python entry points
 ├── slurm/                   # SLURM job scripts for Kelvin2
 ├── experiments/             # Experiment-specific runs and logs
+├── tests/                   # Lightweight automated tests
 ├── data/ptbxl/              # Raw PTB-XL dataset location
 ├── processed/               # Preprocessed dataset outputs
 ├── checkpoints/             # Trained model checkpoints
@@ -49,40 +54,48 @@ In practice, local execution is mainly intended for setup, preprocessing, and fu
 ## Main components
 
 ### Preprocessing
+
 **Script:** `scripts/preprocess_ptbxl.py`
 
 This script:
-- loads PTB-XL metadata and waveform files
-- filters to **500 Hz** recordings
-- maps ECG records to **5 diagnostic superclasses**
-- keeps only records with a **single unambiguous superclass**
-- crops or pads each ECG to **12 × 5000**
-- applies per-lead normalisation
-- creates train, validation, and test splits using PTB-XL folds
+
+- Loads PTB-XL metadata and waveform files
+- Filters to **500 Hz** recordings
+- Maps ECG records to **5 diagnostic superclasses**
+- Keeps only records with a **single unambiguous superclass**
+- Crops or pads each ECG to **12 × 5000**
+- Applies per-lead normalisation
+- Creates train, validation, and test splits using PTB-XL folds
 
 **Output:**
+
 - `processed/ptbxl_500hz_10s.npz`
 
 ### Teacher model
+
 **Script:** `scripts/train_teacher.py`
 
 The teacher is a higher-capacity CNN designed to learn strong ECG representations. It is used both as a standalone classifier and as the supervision source for knowledge distillation.
 
 ### Baseline student model
+
 **Script:** `scripts/train_student_baseline.py`
 
 The baseline student is a lightweight residual CNN trained using standard supervised learning only.
 
 ### KD student model
+
 **Script:** `scripts/train_student_kd.py`
 
 The KD student is trained using a combined objective including:
-- hard-label cross-entropy
-- soft-target distillation
-- logit matching
-- feature distillation
+
+- Hard-label cross-entropy
+- Soft-target distillation
+- Logit matching
+- Feature distillation
 
 ### Experiment workflows
+
 **Location:** `experiments/`
 
 The grouped experiment suite is organised into dedicated experiment folders covering controlled studies such as KD vs baseline comparison, temperature sweeps, alpha sweeps, student-capacity sweeps, teacher-model comparison, distillation ablations, and robustness evaluation.
@@ -92,30 +105,39 @@ The experiment-level `run_all.sh` files are intended primarily for the Kelvin2 /
 ## Models
 
 ### Teacher
+
 The teacher model is a multi-scale residual 1D CNN with:
-- squeeze-and-excitation attention
-- statistics pooling
-- higher channel capacity than the student
+
+- Squeeze-and-excitation attention
+- Statistics pooling
+- Higher channel capacity than the student
+- Configurable capacity variants for teacher-comparison experiments
 
 ### Student
+
 The student model is a lightweight residual 1D CNN with:
-- standard convolutions
-- adaptive average pooling
-- smaller parameter count
-- lower latency and reduced model size
+
+- Standard convolutional residual blocks
+- Adaptive average pooling
+- Smaller parameter count
+- Lower latency and reduced model size
+- Configurable small, medium, and large variants
 
 ## Dataset
 
 This project uses the **PTB-XL** ECG dataset.
 
 ### Input format
+
 - 12-lead ECG signals
 - 500 Hz sampling rate
 - 10-second recordings
-- processed into tensors of shape `(12, 5000)`
+- Processed into tensors of shape `(12, 5000)`
 
 ### Classification task
+
 The task is 5-class diagnostic superclass classification:
+
 - `CD`
 - `HYP`
 - `MI`
@@ -127,46 +149,60 @@ The task is 5-class diagnostic superclass classification:
 The project is organised into a series of controlled experiments.
 
 ### Experiment 1 — KD vs Baseline
+
 Compares:
-- teacher
-- baseline student
+
+- Teacher
+- Baseline student
 - KD student
 
 ### Experiment 2 — Temperature Sweep
+
 Varies distillation temperature:
+
 - `T = 1, 2, 4, 8, 16, 32`
 
 ### Experiment 3 — Alpha Sweep
+
 Varies the weighting between:
-- hard-label supervision
-- teacher supervision
+
+- Hard-label supervision
+- Teacher supervision
 
 ### Experiment 4 — Student Capacity Sweep
+
 Compares:
-- small
-- medium
-- large student models
+
+- Small student
+- Medium student
+- Large student
 
 ### Experiment 5 — Teacher Model Comparison
+
 Uses different teacher capacities to test how teacher strength affects student performance.
 
 ### Experiment 6 — Distillation Component Ablation
+
 Compares:
-- CE only
-- soft targets only
-- feature distillation only
-- combined KD variants
+
+- Cross-entropy only
+- Soft targets only
+- Feature distillation only
+- Combined KD variants
 
 ### Experiment 7 — Robustness Evaluation
+
 Evaluates model behaviour under perturbed inputs such as:
-- additive noise
-- amplitude scaling
-- missing leads
-- time masking
+
+- Additive noise
+- Amplitude scaling
+- Missing leads
+- Time masking
 
 ## Evaluation metrics
 
 The software reports:
+
 - Accuracy
 - Macro-F1
 - Weighted-F1
@@ -177,12 +213,15 @@ The software reports:
 ## Outputs
 
 Depending on the script or experiment, outputs may include:
-- training logs
-- experiment logs
-- model checkpoints
-- printed metric summaries
+
+- Training logs
+- Experiment logs
+- Model checkpoints
+- Printed metric summaries
+- Experiment-level summary statistics
 
 Common output locations:
+
 - `logs/`
 - `checkpoints/`
 - `experiments/.../logs/`
@@ -191,7 +230,9 @@ Common output locations:
 ## Typical workflow
 
 ### Local execution
+
 A practical local workflow is:
+
 1. Install dependencies
 2. Download and place PTB-XL in `data/ptbxl/`
 3. Run preprocessing
@@ -202,7 +243,9 @@ A practical local workflow is:
 This local route is mainly intended to verify that the environment, dataset paths, and main workflows operate correctly.
 
 ### Kelvin2 / SLURM execution
+
 A practical Kelvin2 workflow is:
+
 1. Set up the Python environment
 2. Ensure PTB-XL is available in the expected location
 3. Submit jobs using scripts in `slurm/`
@@ -214,46 +257,96 @@ This is the preferred route for larger-scale experiment execution.
 ## Quick start
 
 ### Preprocess data
+
 ```bash
 python scripts/preprocess_ptbxl.py
 ```
 
 ### Train teacher
+
 ```bash
 python scripts/train_teacher.py
 ```
 
 ### Train baseline student
+
 ```bash
 python scripts/train_student_baseline.py
 ```
 
 ### Train KD student
+
 ```bash
 python scripts/train_student_kd.py
 ```
 
 ### Submit cluster jobs
+
 ```bash
 bash slurm/submit_all.sh
 ```
 
+## Continuous integration
+
+This repository includes a lightweight **GitHub Actions** CI workflow.
+
+The CI workflow runs on an Ubuntu hosted runner using **Python 3.10** and performs three checks:
+
+1. **Python syntax validation** using `compileall`
+2. **Lightweight linting** using `ruff`
+3. **Unit testing** using `pytest`
+
+The linting stage is intentionally focused on serious Python issues, such as syntax/parsing errors and undefined names, rather than enforcing a strict formatting style across the full research codebase.
+
+Full model training is not executed in CI because it requires the PTB-XL dataset and suitable GPU/HPC resources. Instead, the workflow validates the repository structure, importability, helper functions, and lightweight testable components.
+
+The CI workflow therefore provides automated quality-assurance evidence without attempting to reproduce the full computational experiment suite inside GitHub Actions.
+
+## Testing and quality assurance
+
+The project includes several quality-assurance mechanisms:
+
+- Version control using Git
+- Python syntax validation through CI
+- Lightweight Ruff linting through CI
+- Automated unit tests through `pytest`
+- Shared evaluation utilities to reduce duplicated metric logic
+- Fail-fast checks for important error conditions, such as missing processed data or missing teacher checkpoints
+- Structured output locations for logs, checkpoints, and experiment results
+- Documentation through `README.md`, `INSTALL.md`, and `REPLICATION_GUIDE.md`
+
+The automated tests focus on smaller software components and helper functions rather than full ECG model training. This is appropriate for the project because complete training runs are computationally expensive and depend on external data and HPC resources.
+
 ## Reproducibility
 
 The project supports reproducibility through:
-- fixed train/validation/test fold usage
-- explicit random seed control
-- checkpoint saving with metadata
-- experiment-specific logging
+
+- Fixed train/validation/test fold usage
+- Explicit random seed control
+- Checkpoint saving with metadata
+- Experiment-specific logging
 - SLURM-based batch execution
+- Repeated-seed experiment workflows
+- Automated CI checks for syntax, linting, and unit tests
 
 Repeated seeds and summary statistics in the grouped experiment workflows are handled by the experiment scripts themselves rather than being treated as the main standalone user workflow.
 
-## Notes
+## Important notes
 
 - Some experiments depend on pretrained teacher checkpoints.
 - Ensure dataset paths and checkpoint paths are correct before running jobs.
 - The main Python scripts support local execution of preprocessing and the core training workflows.
 - Full grouped experiment workflows are organised under `experiments/` and are primarily intended for Kelvin2 / SLURM execution.
+- Full model training is intentionally excluded from GitHub Actions CI because the workflow would require the PTB-XL dataset and significant compute resources.
 - For installation instructions, see `INSTALL.md`.
 - For reproduction steps, see `REPLICATION_GUIDE.md`.
+
+## Supporting documentation
+
+The repository includes:
+
+- `README.md` — overview of the artefact, repository structure, workflows, CI, and outputs
+- `INSTALL.md` — installation and environment setup instructions
+- `REPLICATION_GUIDE.md` — steps for reproducing the main workflows and experiments
+- `requirements.txt` — Python dependency list
+- `LICENSE` — distribution rights for the artefact
