@@ -13,7 +13,7 @@ The software is designed to support the following goals:
 - train a lightweight **knowledge-distilled student**
 - compare teacher, baseline, and KD models under controlled settings
 - evaluate both **predictive performance** and **deployment-oriented efficiency**
-- support **reproducible ablation studies** and **robustness experiments**
+- support reproducible ablation studies and robustness experiments
 
 ## Repository structure
 
@@ -33,8 +33,18 @@ code/
 ├── README.md
 ├── INSTALL.md
 ├── REPLICATION_GUIDE.md
+├── LICENSE
 └── requirements.txt
 ```
+
+## Execution model
+
+The project can be used in two main ways:
+
+- **Local execution**, by running the main Python scripts directly
+- **Kelvin2 / SLURM execution**, by submitting the provided batch scripts
+
+In practice, local execution is mainly intended for setup, preprocessing, and functional verification of the core training workflows. Full grouped experiment reproduction is primarily intended for Kelvin2, because the experiment suite is organised around batch-oriented experiment scripts and may be impractically slow to run fully on local hardware.
 
 ## Main components
 
@@ -56,8 +66,7 @@ This script:
 ### Teacher model
 **Script:** `scripts/train_teacher.py`
 
-The teacher is a higher-capacity CNN designed to learn strong ECG representations.  
-It is used both as a standalone classifier and as the supervision source for knowledge distillation.
+The teacher is a higher-capacity CNN designed to learn strong ECG representations. It is used both as a standalone classifier and as the supervision source for knowledge distillation.
 
 ### Baseline student model
 **Script:** `scripts/train_student_baseline.py`
@@ -73,16 +82,12 @@ The KD student is trained using a combined objective including:
 - logit matching
 - feature distillation
 
-### Multi-seed evaluation
-**Script:** `scripts/run_multi_seed.py`
+### Experiment workflows
+**Location:** `experiments/`
 
-This script runs experiments across the seeds:
-- `42`
-- `123`
-- `999`
+The grouped experiment suite is organised into dedicated experiment folders covering controlled studies such as KD vs baseline comparison, temperature sweeps, alpha sweeps, student-capacity sweeps, teacher-model comparison, distillation ablations, and robustness evaluation.
 
-It reports summary statistics as:
-- mean ± standard deviation
+The experiment-level `run_all.sh` files are intended primarily for the Kelvin2 / SLURM workflow rather than as the standard local entry point. Repeated seeds and summary statistics within these experiments are handled by the experiment scripts themselves.
 
 ## Models
 
@@ -176,7 +181,6 @@ Depending on the script or experiment, outputs may include:
 - experiment logs
 - model checkpoints
 - printed metric summaries
-- aggregated multi-seed summaries
 
 Common output locations:
 - `logs/`
@@ -187,19 +191,25 @@ Common output locations:
 ## Typical workflow
 
 ### Local execution
+A practical local workflow is:
 1. Install dependencies
 2. Download and place PTB-XL in `data/ptbxl/`
 3. Run preprocessing
-4. Train teacher
-5. Train baseline student
-6. Train KD student
-7. Run experiment suites if required
+4. Train the teacher
+5. Train the baseline student
+6. Train the KD student
+
+This local route is mainly intended to verify that the environment, dataset paths, and main workflows operate correctly.
 
 ### Kelvin2 / SLURM execution
+A practical Kelvin2 workflow is:
 1. Set up the Python environment
 2. Ensure PTB-XL is available in the expected location
 3. Submit jobs using scripts in `slurm/`
-4. Monitor logs in the relevant experiment or log directories
+4. Run grouped experiment workflows as required
+5. Monitor logs in the relevant log directories
+
+This is the preferred route for larger-scale experiment execution.
 
 ## Quick start
 
@@ -223,11 +233,6 @@ python scripts/train_student_baseline.py
 python scripts/train_student_kd.py
 ```
 
-### Run multi-seed summary
-```bash
-python scripts/run_multi_seed.py
-```
-
 ### Submit cluster jobs
 ```bash
 bash slurm/submit_all.sh
@@ -238,15 +243,17 @@ bash slurm/submit_all.sh
 The project supports reproducibility through:
 - fixed train/validation/test fold usage
 - explicit random seed control
-- checkpoint saving
+- checkpoint saving with metadata
 - experiment-specific logging
 - SLURM-based batch execution
-- multi-seed summaries
+
+Repeated seeds and summary statistics in the grouped experiment workflows are handled by the experiment scripts themselves rather than being treated as the main standalone user workflow.
 
 ## Notes
 
 - Some experiments depend on pretrained teacher checkpoints.
 - Ensure dataset paths and checkpoint paths are correct before running jobs.
-- Full experiment workflows are organised under `experiments/`.
+- The main Python scripts support local execution of preprocessing and the core training workflows.
+- Full grouped experiment workflows are organised under `experiments/` and are primarily intended for Kelvin2 / SLURM execution.
 - For installation instructions, see `INSTALL.md`.
 - For reproduction steps, see `REPLICATION_GUIDE.md`.

@@ -2,12 +2,16 @@
 
 ## Overview
 
-This guide explains how to install and prepare the ECG knowledge distillation project for local execution or execution on the Kelvin2 HPC cluster.
+This guide explains how to install and prepare the ECG knowledge distillation project for either:
+- local execution of the main workflows, or
+- Kelvin2 execution using the provided SLURM scripts
 
 The software requires:
 - Python
 - the dependencies listed in `requirements.txt`
 - the PTB-XL dataset placed in the expected directory structure
+
+In practice, local setup is mainly intended for installation, preprocessing, and functional verification of the main training scripts. Larger experiment suites are more appropriately run on Kelvin2 because of runtime and compute requirements.
 
 ## 1. Clone the repository
 
@@ -23,12 +27,14 @@ Replace `<your-repository-url>` with the correct repository URL.
 A virtual environment is recommended.
 
 ### Option A — venv
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
 ### Option B — conda
+
 ```bash
 conda create -n kd-ecg python=3.10
 conda activate kd-ecg
@@ -45,15 +51,19 @@ pip install -r requirements.txt
 Minimum practical requirements depend on the task.
 
 ### Local usage
+
 Recommended:
 - Python 3.10
 - at least 8 GB RAM
 - sufficient free disk space for PTB-XL, processed files, logs, and checkpoints
 
 ### Model training
+
 Recommended:
-- CUDA-capable GPU for training speed
-- CPU execution is possible but may be significantly slower
+- a CUDA-capable GPU for practical training speed
+- CPU execution is possible, but may be significantly slower
+
+Local execution is suitable for basic workflow verification and smaller-scale runs of the main scripts. Full experiment-suite reproduction may be impractically slow on local hardware.
 
 ## 5. Download the dataset
 
@@ -92,9 +102,11 @@ Expected output:
 processed/ptbxl_500hz_10s.npz
 ```
 
+This creates the processed dataset used by the training scripts.
+
 ## 7. Verify the installation
 
-A basic verification step is to run one of the main training scripts.
+A practical verification step is to run one of the main training scripts directly.
 
 For example:
 
@@ -104,10 +116,16 @@ python scripts/train_teacher.py
 
 If the installation is working correctly, you should see:
 - console training output
-- log information printed during execution
+- dataset and model information printed during execution
 - a checkpoint written to `checkpoints/`
 
-Depending on your configuration, full training may take time, so this step is primarily intended to confirm that imports, dependencies, dataset paths, and output paths are working.
+Depending on your configuration, full training may take time, so this step is mainly intended to confirm that imports, dependencies, dataset paths, and output paths are working correctly.
+
+You may also verify the other main workflows locally with:
+- `python scripts/train_student_baseline.py`
+- `python scripts/train_student_kd.py`
+
+These direct Python entry points are the normal local interface for the core workflows.
 
 ## 8. Kelvin2 / HPC usage
 
@@ -128,6 +146,10 @@ For example:
 bash slurm/submit_all.sh
 ```
 
+This submission workflow is intended for teacher, baseline student, and KD execution on Kelvin2, with dependency handling for the KD stage.
+
+For larger-scale experiment runs, Kelvin2 is the preferred environment.
+
 ## 9. Common output locations
 
 During execution, the project may create or update:
@@ -140,26 +162,37 @@ During execution, the project may create or update:
 ## Troubleshooting
 
 ### `ModuleNotFoundError`
+
 - confirm the environment is activated
 - confirm dependencies were installed with `pip install -r requirements.txt`
 
 ### dataset file not found
+
 - confirm PTB-XL is located under `data/ptbxl/`
 - confirm required metadata files such as `ptbxl_database.csv` and `scp_statements.csv` are present
 
+### teacher checkpoint not found during KD training
+
+- confirm teacher training has completed successfully
+- confirm the expected teacher checkpoint path matches the path used by the KD script
+
 ### CUDA or GPU errors
+
 - confirm a compatible GPU is available
 - check GPU visibility with:
+
 ```bash
 nvidia-smi
 ```
 
 ### slow execution
+
 - local CPU execution may be much slower than GPU or cluster execution
-- for full experiments, Kelvin2 is recommended
+- for complete experiment-suite runs, Kelvin2 is recommended
 
 ## Notes
 
-- Full experimental workflows are organised under `experiments/`
-- Cluster execution scripts are organised under `slurm/`
-- Reproduction instructions are provided in `REPLICATION_GUIDE.md`
+- the main Python scripts support local execution of preprocessing and the core training workflows
+- cluster execution scripts are organised under `slurm/`
+- grouped experiment workflows are organised under `experiments/` and are primarily intended for Kelvin2/SLURM execution
+- reproduction instructions are provided in `REPLICATION_GUIDE.md`
