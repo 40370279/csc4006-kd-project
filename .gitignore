@@ -11,6 +11,8 @@ experiments/**/checkpoints/
 experiments/**/logs/
 /checkpoints/
 /logs/
+/results/
+results/
 
 # =========================
 # PYTHON
