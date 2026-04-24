@@ -1,286 +1,252 @@
-# ECG Knowledge Distillation Project
+# ECG Knowledge Distillation for Efficient PTB-XL Classification
 
-This project investigates whether **knowledge distillation (KD)** can improve the performance and robustness of lightweight models for ECG classification.
+This repository contains a reproducible research software framework for investigating **knowledge distillation (KD)** for efficient ECG classification on the **PTB-XL** dataset.
 
-The goal is to:
+The project studies whether a compact student model can approach the performance of a higher-capacity teacher model while remaining significantly smaller and faster at inference.
 
-* build efficient models suitable for deployment
-* retain high diagnostic performance
-* improve robustness under real-world conditions
+## Project objectives
 
----
+The software is designed to support the following goals:
 
-## Core idea
+- train a high-capacity **teacher** ECG classifier
+- train a lightweight **baseline student** classifier
+- train a lightweight **knowledge-distilled student**
+- compare teacher, baseline, and KD models under controlled settings
+- evaluate both **predictive performance** and **deployment-oriented efficiency**
+- support **reproducible ablation studies** and **robustness experiments**
 
-A large, high-capacity **teacher model** is used to guide a smaller **student model**.
+## Repository structure
 
-The student learns from:
+```text
+code/
+├── src/
+│   ├── data/                # Dataset wrapper and ECG augmentation
+│   ├── models/              # Teacher and student model implementations
+│   └── utils/               # Metrics and model statistics
+├── scripts/                 # Main Python entry points
+├── slurm/                   # SLURM job scripts for Kelvin2
+├── experiments/             # Experiment-specific runs and logs
+├── data/ptbxl/              # Raw PTB-XL dataset location
+├── processed/               # Preprocessed dataset outputs
+├── checkpoints/             # Trained model checkpoints
+├── logs/                    # Log files
+├── README.md
+├── INSTALL.md
+├── REPLICATION_GUIDE.md
+└── requirements.txt
+```
 
-* true labels (ground truth)
-* teacher predictions (soft targets)
-* internal representations (feature distillation)
+## Main components
 
-This allows the student to:
+### Preprocessing
+**Script:** `scripts/preprocess_ptbxl.py`
 
-* learn richer representations
-* generalise better
-* perform closer to the teacher despite lower capacity
+This script:
+- loads PTB-XL metadata and waveform files
+- filters to **500 Hz** recordings
+- maps ECG records to **5 diagnostic superclasses**
+- keeps only records with a **single unambiguous superclass**
+- crops or pads each ECG to **12 × 5000**
+- applies per-lead normalisation
+- creates train, validation, and test splits using PTB-XL folds
 
----
-
-## Models used
+**Output:**
+- `processed/ptbxl_500hz_10s.npz`
 
 ### Teacher model
+**Script:** `scripts/train_teacher.py`
 
-* Multi-scale residual CNN
-* Squeeze-and-Excitation (SE) attention
-* Statistics pooling (mean + std)
-* High representational capacity
+The teacher is a higher-capacity CNN designed to learn strong ECG representations.  
+It is used both as a standalone classifier and as the supervision source for knowledge distillation.
 
----
+### Baseline student model
+**Script:** `scripts/train_student_baseline.py`
 
-### Student model
+The baseline student is a lightweight residual CNN trained using standard supervised learning only.
 
-* Lightweight residual CNN
-* Standard convolutions
-* Adaptive average pooling
-* Designed for:
+### KD student model
+**Script:** `scripts/train_student_kd.py`
 
-  * low latency
-  * small model size
-  * efficient inference
+The KD student is trained using a combined objective including:
+- hard-label cross-entropy
+- soft-target distillation
+- logit matching
+- feature distillation
 
----
+### Multi-seed evaluation
+**Script:** `scripts/run_multi_seed.py`
+
+This script runs experiments across the seeds:
+- `42`
+- `123`
+- `999`
+
+It reports summary statistics as:
+- mean ± standard deviation
+
+## Models
+
+### Teacher
+The teacher model is a multi-scale residual 1D CNN with:
+- squeeze-and-excitation attention
+- statistics pooling
+- higher channel capacity than the student
+
+### Student
+The student model is a lightweight residual 1D CNN with:
+- standard convolutions
+- adaptive average pooling
+- smaller parameter count
+- lower latency and reduced model size
 
 ## Dataset
 
-* **PTB-XL ECG dataset**
-* 12-lead ECG signals
-* 5 diagnostic classes:
+This project uses the **PTB-XL** ECG dataset.
 
-  * CD
-  * HYP
-  * MI
-  * NORM
-  * STTC
+### Input format
+- 12-lead ECG signals
+- 500 Hz sampling rate
+- 10-second recordings
+- processed into tensors of shape `(12, 5000)`
 
----
-
-### Preprocessing
-
-* Resampled to **500 Hz**
-* Fixed length: **10 seconds (5000 samples)**
-* Per-lead normalisation
-
----
-
-## Knowledge distillation setup
-
-The student is trained using a combined loss:
-
-* Cross-Entropy (hard labels)
-* KL Divergence (soft targets)
-* Logit matching (MSE)
-* Feature distillation (projected features)
-
----
+### Classification task
+The task is 5-class diagnostic superclass classification:
+- `CD`
+- `HYP`
+- `MI`
+- `NORM`
+- `STTC`
 
 ## Experiments
 
-The project is structured into a series of experiments:
-
----
+The project is organised into a series of controlled experiments.
 
 ### Experiment 1 — KD vs Baseline
-
-* Compare:
-
-  * Teacher model
-  * Baseline student
-  * KD student
-
-Tests:
-
-* whether KD improves student performance
-
----
+Compares:
+- teacher
+- baseline student
+- KD student
 
 ### Experiment 2 — Temperature Sweep
-
-* Vary distillation temperature:
-
-  * T = 1, 2, 4, 8, 16, 32
-
-Tests:
-
-* how soft target smoothing affects learning
-
----
+Varies distillation temperature:
+- `T = 1, 2, 4, 8, 16, 32`
 
 ### Experiment 3 — Alpha Sweep
+Varies the weighting between:
+- hard-label supervision
+- teacher supervision
 
-* Vary balance between:
+### Experiment 4 — Student Capacity Sweep
+Compares:
+- small
+- medium
+- large student models
 
-  * hard labels
-  * soft targets
+### Experiment 5 — Teacher Model Comparison
+Uses different teacher capacities to test how teacher strength affects student performance.
 
-Tests:
-
-* optimal trade-off for KD
-
----
-
-### Experiment 4 — Student Capacity
-
-* Compare:
-
-  * small, medium, large students
-
-Tests:
-
-* how KD scales with model capacity
-
----
-
-### Experiment 5 — Teacher Strength
-
-* Use different teacher sizes
-
-Tests:
-
-* whether stronger teachers improve student performance
-
----
-
-### Experiment 6 — Distillation Components
-
-* Ablation study:
-
-  * CE only
-  * soft targets only
-  * feature distillation only
-  * combined
-
-Tests:
-
-* contribution of each KD component
-
----
+### Experiment 6 — Distillation Component Ablation
+Compares:
+- CE only
+- soft targets only
+- feature distillation only
+- combined KD variants
 
 ### Experiment 7 — Robustness Evaluation
-
-* Evaluate models under corrupted inputs:
-
-  * noise
-  * amplitude changes
-  * missing leads
-  * time masking
-
-Tests:
-
-* whether KD improves real-world robustness
-
----
+Evaluates model behaviour under perturbed inputs such as:
+- additive noise
+- amplitude scaling
+- missing leads
+- time masking
 
 ## Evaluation metrics
 
-Primary metrics:
+The software reports:
+- Accuracy
+- Macro-F1
+- Weighted-F1
+- Macro-AUC
 
-* Accuracy
-* Macro-F1
-* Weighted-F1
-* **Macro-AUC (primary focus)**
-
-Macro-AUC is used because it:
-
-* handles class imbalance
-* evaluates ranking quality
-* is robust to threshold choice
-
----
-
-## Seeds
-
-All experiments are run with:
-
-* 42
-* 123
-* 999
-
-Results are reported as:
-
-* mean ± standard deviation
-
----
-
-## How to run
-
-Each experiment uses SLURM scripts.
-
-Example:
-
-```
-sbatch experiments/1__kd_vs_baseline/run_kd.slurm
-```
-
----
-
-## Dependencies
-
-* Python 3.10
-* PyTorch
-* NumPy
-* scikit-learn
-
----
+**Macro-AUC** is the primary metric because it is more informative under class imbalance and better reflects class-balanced discrimination.
 
 ## Outputs
 
-Each experiment produces:
+Depending on the script or experiment, outputs may include:
+- training logs
+- experiment logs
+- model checkpoints
+- printed metric summaries
+- aggregated multi-seed summaries
 
-* logs (`logs/`, `logs/tmp/`)
-* checkpoints (`checkpoints/`)
-* results (JSON or printed summaries)
+Common output locations:
+- `logs/`
+- `checkpoints/`
+- `experiments/.../logs/`
+- `experiments/.../checkpoints/`
 
----
+## Typical workflow
 
-## Expected outcomes
+### Local execution
+1. Install dependencies
+2. Download and place PTB-XL in `data/ptbxl/`
+3. Run preprocessing
+4. Train teacher
+5. Train baseline student
+6. Train KD student
+7. Run experiment suites if required
 
-Across experiments, KD is expected to:
+### Kelvin2 / SLURM execution
+1. Set up the Python environment
+2. Ensure PTB-XL is available in the expected location
+3. Submit jobs using scripts in `slurm/`
+4. Monitor logs in the relevant experiment or log directories
 
-* improve student performance over baseline
-* reduce performance gap with teacher
-* improve robustness under corrupted inputs
-* maintain low latency and model size
+## Quick start
 
----
+### Preprocess data
+```bash
+python scripts/preprocess_ptbxl.py
+```
 
-## Interpretation
+### Train teacher
+```bash
+python scripts/train_teacher.py
+```
 
-Knowledge distillation enables:
+### Train baseline student
+```bash
+python scripts/train_student_baseline.py
+```
 
-* transfer of richer representations
-* improved generalisation
-* better performance under distribution shift
+### Train KD student
+```bash
+python scripts/train_student_kd.py
+```
 
-This makes KD particularly suitable for:
+### Run multi-seed summary
+```bash
+python scripts/run_multi_seed.py
+```
 
-* medical signal analysis
-* real-world deployment scenarios
+### Submit cluster jobs
+```bash
+bash slurm/submit_all.sh
+```
 
----
+## Reproducibility
+
+The project supports reproducibility through:
+- fixed train/validation/test fold usage
+- explicit random seed control
+- checkpoint saving
+- experiment-specific logging
+- SLURM-based batch execution
+- multi-seed summaries
 
 ## Notes
 
-* Training scripts are separate from evaluation scripts
-* Some experiments require pre-trained checkpoints
-* Ensure correct paths before running SLURM jobs
-* Check logs if parsing or checkpoint errors occur
-
----
-
-## Project goal
-
-To demonstrate that:
-
-> **small, efficient models can achieve strong and robust performance through knowledge distillation**
+- Some experiments depend on pretrained teacher checkpoints.
+- Ensure dataset paths and checkpoint paths are correct before running jobs.
+- Full experiment workflows are organised under `experiments/`.
+- For installation instructions, see `INSTALL.md`.
+- For reproduction steps, see `REPLICATION_GUIDE.md`.

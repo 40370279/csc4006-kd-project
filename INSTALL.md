@@ -2,140 +2,164 @@
 
 ## Overview
 
-This project implements a deep learning pipeline for ECG classification using Knowledge Distillation (KD). The system is designed to run on both local machines and the Kelvin2 HPC cluster.
+This guide explains how to install and prepare the ECG knowledge distillation project for local execution or execution on the Kelvin2 HPC cluster.
 
----
+The software requires:
+- Python
+- the dependencies listed in `requirements.txt`
+- the PTB-XL dataset placed in the expected directory structure
 
-## 1. Clone the Repository
+## 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
-cd <repo-name>
+git clone <your-repository-url>
+cd code
 ```
 
----
+Replace `<your-repository-url>` with the correct repository URL.
 
-## 2. Python Environment Setup
+## 2. Create a Python environment
 
-It is recommended to use a virtual environment.
+A virtual environment is recommended.
 
-### Option A: venv
-
+### Option A — venv
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### Option B: Conda
-
+### Option B — conda
 ```bash
-conda create -n kd-ecg python=3.9
+conda create -n kd-ecg python=3.10
 conda activate kd-ecg
 ```
 
----
-
-## 3. Install Dependencies
+## 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
+## 4. Hardware notes
 
-## 4. Hardware Requirements
+Minimum practical requirements depend on the task.
 
-* GPU recommended (CUDA-enabled)
-* Minimum 8GB RAM
-* ~5–10GB storage for dataset and checkpoints
+### Local usage
+Recommended:
+- Python 3.10
+- at least 8 GB RAM
+- sufficient free disk space for PTB-XL, processed files, logs, and checkpoints
 
----
+### Model training
+Recommended:
+- CUDA-capable GPU for training speed
+- CPU execution is possible but may be significantly slower
 
-## 5. Dataset Setup
+## 5. Download the dataset
 
-Download the **PTB-XL dataset** from PhysioNet:
-https://physionet.org/content/ptb-xl/
+This project uses the **PTB-XL** dataset.
 
-Place the dataset in:
+Download the dataset from PhysioNet and place it inside:
 
-```
+```text
 data/ptbxl/
 ```
 
-Expected structure:
+Expected structure should include the PTB-XL metadata and waveform files, for example:
 
-```
+```text
 data/
 └── ptbxl/
     ├── ptbxl_database.csv
+    ├── scp_statements.csv
     ├── records500/
     └── ...
 ```
 
----
+The exact contents may vary slightly depending on how the dataset is downloaded, but the preprocessing script must be able to locate the expected PTB-XL files under `data/ptbxl/`.
 
-## 6. Preprocessing
+## 6. Preprocess the dataset
 
-Run preprocessing to generate the processed dataset:
+Run:
 
 ```bash
 python scripts/preprocess_ptbxl.py
 ```
 
-This will create:
+Expected output:
 
-```
+```text
 processed/ptbxl_500hz_10s.npz
 ```
 
----
+## 7. Verify the installation
 
-## 7. Running on Kelvin2 (HPC)
+A basic verification step is to run one of the main training scripts.
 
-Ensure:
-
-* SSH access is configured
-* Required modules (Python, CUDA) are loaded
-
-Example:
-
-```bash
-module load python/3.x
-module load cuda
-```
-
-Then submit jobs using SLURM:
-
-```bash
-bash slurm/submit_all.sh
-```
-
----
-
-## 8. Verifying Installation
-
-Run a quick training test:
+For example:
 
 ```bash
 python scripts/train_teacher.py
 ```
 
-If successful, you should see:
+If the installation is working correctly, you should see:
+- console training output
+- log information printed during execution
+- a checkpoint written to `checkpoints/`
 
-* Training logs printed to console
-* Checkpoints saved in `checkpoints/`
+Depending on your configuration, full training may take time, so this step is primarily intended to confirm that imports, dependencies, dataset paths, and output paths are working.
 
----
+## 8. Kelvin2 / HPC usage
+
+If running on Kelvin2, first load the required modules according to your environment.
+
+A typical example is:
+
+```bash
+module purge
+module load python3/3.10.5/gcc-9.3.0
+```
+
+Then submit jobs using the SLURM scripts provided in `slurm/`.
+
+For example:
+
+```bash
+bash slurm/submit_all.sh
+```
+
+## 9. Common output locations
+
+During execution, the project may create or update:
+- `processed/`
+- `checkpoints/`
+- `logs/`
+- `experiments/.../logs/`
+- `experiments/.../checkpoints/`
 
 ## Troubleshooting
 
-* **ModuleNotFoundError** → Ensure virtual environment is activated
-* **CUDA errors** → Check GPU availability (`nvidia-smi`)
-* **Dataset errors** → Verify PTB-XL path and structure
+### `ModuleNotFoundError`
+- confirm the environment is activated
+- confirm dependencies were installed with `pip install -r requirements.txt`
 
----
+### dataset file not found
+- confirm PTB-XL is located under `data/ptbxl/`
+- confirm required metadata files such as `ptbxl_database.csv` and `scp_statements.csv` are present
+
+### CUDA or GPU errors
+- confirm a compatible GPU is available
+- check GPU visibility with:
+```bash
+nvidia-smi
+```
+
+### slow execution
+- local CPU execution may be much slower than GPU or cluster execution
+- for full experiments, Kelvin2 is recommended
 
 ## Notes
 
-* All experiments are reproducible via scripts in `experiments/`
-* Outputs (logs, checkpoints) are automatically generated
+- Full experimental workflows are organised under `experiments/`
+- Cluster execution scripts are organised under `slurm/`
+- Reproduction instructions are provided in `REPLICATION_GUIDE.md`
