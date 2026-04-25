@@ -6,3 +6,4 @@ scikit-learn
 pytest
 pytest-cov
 ruff
+matplotlib
