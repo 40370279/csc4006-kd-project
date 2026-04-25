@@ -294,13 +294,11 @@ The CI workflow runs on an Ubuntu hosted runner using **Python 3.10** and perfor
 
 1. **Python syntax validation** using `compileall`
 2. **Lightweight linting** using `ruff`
-3. **Unit testing** using `pytest`
+3. **Automated testing and coverage** using `pytest` and `pytest-cov`
 
 The linting stage is intentionally focused on serious Python issues, such as syntax/parsing errors and undefined names, rather than enforcing a strict formatting style across the full research codebase.
 
-Full model training is not executed in CI because it requires the PTB-XL dataset and suitable GPU/HPC resources. Instead, the workflow validates the repository structure, importability, helper functions, and lightweight testable components.
-
-The CI workflow therefore provides automated quality-assurance evidence without attempting to reproduce the full computational experiment suite inside GitHub Actions.
+Full PTB-XL preprocessing and model training are not executed in CI because they require the dataset and suitable GPU/HPC resources. Instead, the workflow validates importability, helper functions, dataset wrappers, augmentation safety, model forward passes, KD loss computation, metric utilities, CLI parsing, checkpoint metadata, and a synthetic KD training-step smoke test.
 
 ## Testing and quality assurance
 
@@ -310,12 +308,24 @@ The project includes several quality-assurance mechanisms:
 - Python syntax validation through CI
 - Lightweight Ruff linting through CI
 - Automated unit tests through `pytest`
+- Coverage reporting through `pytest-cov`
+- Synthetic smoke testing of the core KD training path without PTB-XL or GPU access
 - Shared evaluation utilities to reduce duplicated metric logic
 - Fail-fast checks for important error conditions, such as missing processed data or missing teacher checkpoints
 - Structured output locations for logs, checkpoints, and experiment results
-- Documentation through `README.md`, `INSTALL.md`, and `REPLICATION_GUIDE.md`
+- Documentation through `README.md`, `INSTALL.md`, `REPLICATION_GUIDE.md`, `TESTING.md`, and `docs/known_issues.md`
 
-The automated tests focus on smaller software components and helper functions rather than full ECG model training. This is appropriate for the project because complete training runs are computationally expensive and depend on external data and HPC resources.
+Run the lightweight QA suite locally with:
+
+```bash
+python -m compileall src scripts tests
+ruff check src scripts tests --select E9,F63,F7,F82
+pytest --cov=src --cov=scripts --cov-report=term-missing
+```
+
+The automated tests focus on smaller software components and helper functions rather than full ECG model training. This is appropriate for the project because complete training runs are computationally expensive and depend on external data and HPC resources. The full experimental workflows are validated through the documented Kelvin2/SLURM process, logs, checkpoints, and repeated-seed experiments.
+
+For more detail, see `TESTING.md`.
 
 ## Reproducibility
 
@@ -327,7 +337,7 @@ The project supports reproducibility through:
 - Experiment-specific logging
 - SLURM-based batch execution
 - Repeated-seed experiment workflows
-- Automated CI checks for syntax, linting, and unit tests
+- Automated CI checks for syntax, linting, unit tests, synthetic smoke tests, and coverage reporting
 
 Repeated seeds and summary statistics in the grouped experiment workflows are handled by the experiment scripts themselves rather than being treated as the main standalone user workflow.
 
@@ -340,6 +350,8 @@ Repeated seeds and summary statistics in the grouped experiment workflows are ha
 - Full model training is intentionally excluded from GitHub Actions CI because the workflow would require the PTB-XL dataset and significant compute resources.
 - For installation instructions, see `INSTALL.md`.
 - For reproduction steps, see `REPLICATION_GUIDE.md`.
+- For automated and manual QA details, see `TESTING.md`.
+- For known issues and mitigations, see `docs/known_issues.md`.
 
 ## Supporting documentation
 
@@ -348,5 +360,7 @@ The repository includes:
 - `README.md` — overview of the artefact, repository structure, workflows, CI, and outputs
 - `INSTALL.md` — installation and environment setup instructions
 - `REPLICATION_GUIDE.md` — steps for reproducing the main workflows and experiments
+- `TESTING.md` — automated testing, CI, smoke testing, and manual validation guidance
+- `docs/known_issues.md` — known limitations and mitigations for the software artefact
 - `requirements.txt` — Python dependency list
 - `LICENSE` — distribution rights for the artefact

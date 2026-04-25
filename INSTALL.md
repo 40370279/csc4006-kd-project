@@ -106,7 +106,17 @@ This creates the processed dataset used by the training scripts.
 
 ## 7. Verify the installation
 
-A practical verification step is to run one of the main training scripts directly.
+First run the lightweight automated checks. These do not require PTB-XL or a GPU:
+
+```bash
+python -m compileall src scripts tests
+ruff check src scripts tests --select E9,F63,F7,F82
+pytest --cov=src --cov=scripts --cov-report=term-missing
+```
+
+A successful run should complete without syntax errors, serious lint errors, or failing tests. The pytest suite includes unit tests and a synthetic smoke test for the KD training path.
+
+After placing PTB-XL in the expected location, a practical workflow verification step is to run one of the main training scripts directly.
 
 For example:
 
@@ -196,3 +206,4 @@ nvidia-smi
 - cluster execution scripts are organised under `slurm/`
 - grouped experiment workflows are organised under `experiments/` and are primarily intended for Kelvin2/SLURM execution
 - reproduction instructions are provided in `REPLICATION_GUIDE.md`
+- automated QA details are provided in `TESTING.md`
