@@ -27,7 +27,7 @@ echo "Start: $(date)"
 echo "Working directory: $(pwd)"
 echo
 
-python3 -u -m scripts.plot_roc_curves
+python3 -u -m src.utils.plot_roc_curves
 
 echo
 echo "Finished: $(date)"

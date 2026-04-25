@@ -22,7 +22,7 @@ Does knowledge distillation improve a small ECG student model compared with stan
 
 Teacher:
 - Architecture: TeacherCNN  
-- Size: xlarge  
+- Size: large  
 - Role: provides soft targets and feature guidance  
 
 Baseline student:

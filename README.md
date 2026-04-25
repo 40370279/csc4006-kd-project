@@ -26,18 +26,21 @@ code/
 ├── src/
 │   ├── data/                # Dataset wrapper and ECG augmentation
 │   ├── models/              # Teacher and student model implementations
-│   └── utils/               # Metrics and model statistics
+│   └── utils/               # Metrics, model statistics, ROC plotting utilities
 ├── scripts/                 # Main Python entry points
 ├── slurm/                   # SLURM job scripts for Kelvin2
 ├── experiments/             # Experiment-specific runs and logs
 ├── tests/                   # Lightweight automated tests
+├── docs/                    # Additional QA notes and known issues
 ├── data/ptbxl/              # Raw PTB-XL dataset location
 ├── processed/               # Preprocessed dataset outputs
 ├── checkpoints/             # Trained model checkpoints
 ├── logs/                    # Log files
+├── results/                 # Generated figures and result outputs
 ├── README.md
 ├── INSTALL.md
 ├── REPLICATION_GUIDE.md
+├── TESTING.md
 ├── LICENSE
 └── requirements.txt
 ```
@@ -50,6 +53,25 @@ The project can be used in two main ways:
 - **Kelvin2 / SLURM execution**, by submitting the provided batch scripts
 
 In practice, local execution is mainly intended for setup, preprocessing, and functional verification of the core training workflows. Full grouped experiment reproduction is primarily intended for Kelvin2, because the experiment suite is organised around batch-oriented experiment scripts and may be impractically slow to run fully on local hardware.
+
+### Working directory requirement
+
+Most training, experiment, plotting, and SLURM workflows are designed to be run from the repository root, for example:
+
+```bash
+cd /users/40370279/csc4006/code
+```
+
+This is important because many scripts save logs, checkpoints, processed data, and generated figures using project-root-relative paths such as:
+
+- `logs/`
+- `checkpoints/`
+- `processed/`
+- `results/`
+- `experiments/.../logs/`
+- `experiments/.../checkpoints/`
+
+Running scripts from a different working directory may cause outputs to be written to unexpected locations or may prevent checkpoint/data paths from resolving correctly. The provided SLURM scripts therefore change into the project root before execution.
 
 ## Main components
 
@@ -93,6 +115,24 @@ The KD student is trained using a combined objective including:
 - Soft-target distillation
 - Logit matching
 - Feature distillation
+
+### ROC plotting
+
+**Utility:** `src/utils/plot_roc_curves.py`
+
+This utility generates aggregated ROC curves and macro-AUC comparison plots for the teacher, baseline student, and KD student models.
+
+Recommended usage from the repository root:
+
+```bash
+python -m src.utils.plot_roc_curves
+```
+
+Default output location:
+
+```text
+results/roc_curves/
+```
 
 ### Experiment workflows
 
@@ -143,6 +183,12 @@ The task is 5-class diagnostic superclass classification:
 - `MI`
 - `NORM`
 - `STTC`
+
+The raw PTB-XL dataset is not included in this repository due to size and distribution constraints. To reproduce the experiments, download PTB-XL separately and place it in the expected dataset location, typically:
+
+```text
+data/ptbxl/
+```
 
 ## Experiments
 
@@ -219,13 +265,18 @@ Depending on the script or experiment, outputs may include:
 - Model checkpoints
 - Printed metric summaries
 - Experiment-level summary statistics
+- ROC curves and generated figures
 
 Common output locations:
 
 - `logs/`
 - `checkpoints/`
+- `processed/`
+- `results/`
 - `experiments/.../logs/`
 - `experiments/.../checkpoints/`
+
+Generated logs, checkpoints, processed datasets, and large result artefacts are intentionally excluded from version control where appropriate, because they are reproducible outputs and may be too large to store in the repository.
 
 ## Typical workflow
 
@@ -239,6 +290,7 @@ A practical local workflow is:
 4. Train the teacher
 5. Train the baseline student
 6. Train the KD student
+7. Generate evaluation outputs such as ROC curves, if required
 
 This local route is mainly intended to verify that the environment, dataset paths, and main workflows operate correctly.
 
@@ -248,11 +300,19 @@ A practical Kelvin2 workflow is:
 
 1. Set up the Python environment
 2. Ensure PTB-XL is available in the expected location
-3. Submit jobs using scripts in `slurm/`
-4. Run grouped experiment workflows as required
-5. Monitor logs in the relevant log directories
+3. Change into the repository root
+4. Submit jobs using scripts in `slurm/`
+5. Run grouped experiment workflows as required
+6. Monitor logs in the relevant log directories
 
-This is the preferred route for larger-scale experiment execution.
+Example:
+
+```bash
+cd /users/40370279/csc4006/code
+sbatch slurm/run_teacher.slurm
+```
+
+This is the preferred route for larger-scale experiment execution. The SLURM scripts are written to run from the project root so that logs, checkpoints, processed files, and result outputs are saved in the expected repository-level directories.
 
 ## Quick start
 
@@ -280,10 +340,22 @@ python scripts/train_student_baseline.py
 python scripts/train_student_kd.py
 ```
 
+### Plot ROC curves
+
+```bash
+python -m src.utils.plot_roc_curves
+```
+
 ### Submit cluster jobs
 
 ```bash
 bash slurm/submit_all.sh
+```
+
+Or submit an individual job:
+
+```bash
+sbatch slurm/run_teacher.slurm
 ```
 
 ## Continuous integration
@@ -338,6 +410,7 @@ The project supports reproducibility through:
 - SLURM-based batch execution
 - Repeated-seed experiment workflows
 - Automated CI checks for syntax, linting, unit tests, synthetic smoke tests, and coverage reporting
+- Clear separation between source code and generated artefacts such as logs, checkpoints, processed data, and figures
 
 Repeated seeds and summary statistics in the grouped experiment workflows are handled by the experiment scripts themselves rather than being treated as the main standalone user workflow.
 
@@ -345,9 +418,11 @@ Repeated seeds and summary statistics in the grouped experiment workflows are ha
 
 - Some experiments depend on pretrained teacher checkpoints.
 - Ensure dataset paths and checkpoint paths are correct before running jobs.
+- Training, experiment, plotting, and SLURM workflows should ideally be launched from the repository root because many outputs are saved using project-root-relative paths such as `logs/`, `checkpoints/`, `processed/`, and `results/`.
 - The main Python scripts support local execution of preprocessing and the core training workflows.
 - Full grouped experiment workflows are organised under `experiments/` and are primarily intended for Kelvin2 / SLURM execution.
 - Full model training is intentionally excluded from GitHub Actions CI because the workflow would require the PTB-XL dataset and significant compute resources.
+- Generated outputs such as logs, checkpoints, processed datasets, and large result artefacts may be excluded from version control and regenerated using the documented workflows.
 - For installation instructions, see `INSTALL.md`.
 - For reproduction steps, see `REPLICATION_GUIDE.md`.
 - For automated and manual QA details, see `TESTING.md`.
