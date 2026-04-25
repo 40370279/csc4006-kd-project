@@ -31,7 +31,6 @@ code/
 ├── slurm/                   # SLURM job scripts for Kelvin2
 ├── experiments/             # Experiment-specific runs and logs
 ├── tests/                   # Lightweight automated tests
-├── docs/                    # Additional QA notes and known issues
 ├── data/ptbxl/              # Raw PTB-XL dataset location
 ├── processed/               # Preprocessed dataset outputs
 ├── checkpoints/             # Trained model checkpoints
@@ -309,7 +308,7 @@ Example:
 
 ```bash
 cd /users/40370279/csc4006/code
-sbatch slurm/run_teacher.slurm
+sbatch slurm/train_teacher.slurm
 ```
 
 This is the preferred route for larger-scale experiment execution. The SLURM scripts are written to run from the project root so that logs, checkpoints, processed files, and result outputs are saved in the expected repository-level directories.
@@ -355,7 +354,7 @@ bash slurm/submit_all.sh
 Or submit an individual job:
 
 ```bash
-sbatch slurm/run_teacher.slurm
+sbatch slurm/train_teacher.slurm
 ```
 
 ## Continuous integration
@@ -385,7 +384,7 @@ The project includes several quality-assurance mechanisms:
 - Shared evaluation utilities to reduce duplicated metric logic
 - Fail-fast checks for important error conditions, such as missing processed data or missing teacher checkpoints
 - Structured output locations for logs, checkpoints, and experiment results
-- Documentation through `README.md`, `INSTALL.md`, `REPLICATION_GUIDE.md`, `TESTING.md`, and `docs/known_issues.md`
+- Documentation through `README.md`, `INSTALL.md`, `REPLICATION_GUIDE.md`, and `TESTING.md`
 
 Run the lightweight QA suite locally with:
 
@@ -426,7 +425,6 @@ Repeated seeds and summary statistics in the grouped experiment workflows are ha
 - For installation instructions, see `INSTALL.md`.
 - For reproduction steps, see `REPLICATION_GUIDE.md`.
 - For automated and manual QA details, see `TESTING.md`.
-- For known issues and mitigations, see `docs/known_issues.md`.
 
 ## Supporting documentation
 
@@ -436,6 +434,5 @@ The repository includes:
 - `INSTALL.md` — installation and environment setup instructions
 - `REPLICATION_GUIDE.md` — steps for reproducing the main workflows and experiments
 - `TESTING.md` — automated testing, CI, smoke testing, and manual validation guidance
-- `docs/known_issues.md` — known limitations and mitigations for the software artefact
 - `requirements.txt` — Python dependency list
 - `LICENSE` — distribution rights for the artefact

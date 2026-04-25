@@ -16,11 +16,15 @@ In practice, local setup is mainly intended for installation, preprocessing, and
 ## 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
-cd code
+git clone https://github.com/lewismcgrogan/CSC4006-KD-Project.git
+cd CSC4006-KD-Project
 ```
 
-Replace `<your-repository-url>` with the correct repository URL.
+If the submitted code is inside a `code/` subfolder, then change into that folder after cloning:
+
+```bash
+cd code
+```
 
 ## 2. Create a Python environment
 
